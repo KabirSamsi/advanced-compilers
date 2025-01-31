@@ -1,6 +1,5 @@
 import json
 import sys
-from collections import defaultdict
 
 """
 Analyzes a handful of statistics about a function:
