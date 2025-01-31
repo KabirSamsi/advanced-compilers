@@ -35,7 +35,8 @@
               "size"
             ],
             "dest": "cond",
-            "op": "lt"
+            "op": "lt",
+            "type": "bool"
           },
           {
             "args": [
@@ -56,6 +57,17 @@
               "i"
             ],
             "dest": "idx",
+            "op": "ptradd",
+            "type": {
+              "ptr": "int"
+            }
+          },
+          {
+            "args": [
+              "arr",
+              "i"
+            ],
+            "dest": "idx2",
             "op": "ptradd",
             "type": {
               "ptr": "int"
