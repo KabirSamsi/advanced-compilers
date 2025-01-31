@@ -2,28 +2,36 @@ import json
 import sys
 from collections import defaultdict
 
-def block(function):
-    if len(function) == 0:
-        return []
-    
-    # Store all labels
-    labels = {}    
+"""
+    Build a list of basic blocks from the instructions of a function
+    Returns a dictionary mapping a block's heading label to it corresopnding block
+"""
+def block(fn):
+    # Store all labeled blocks    
+    blocks = {}
 
-    if "label" not in function[0]:
-        labels["start"] = []
-
-
-    for insn in function["instrs"]:
+    # Traverse each block and add it
+    curr_label = ""
+    curr = []
+    print(fn.keys())
+    for insn in fn["instrs"]:
+        #End block if it is a label or a terminator
         if "label" in insn:
-            labels[]
-
-
-    # Traverse through and track current label
-
-    # When we reach a jump or break, chunk the new block in
-
-    # Insert a new block if necessary right after
+            blocks[curr_label] = curr
+            curr_label = insn["label"] # Update new label
+            curr = []
+        elif "op" in insn and insn["op"] in ["jmp", "br"]:
+            curr.append(insn)
+            blocks[curr_label] = curr
+            curr = []
+        # If not, continue to build up block
+        else:
+            curr.append(insn)
     
+    return blocks
+    
+def gen_cfg(function):
+    blocked = block(function)
 
 def main():
     if len(sys.argv) < 2:
@@ -34,8 +42,9 @@ def main():
         bril_program = json.load(f)
 
     for function in bril_program.get("functions", []):
-        print(f"\nFunction: {function['name']}")
-        block(function)
+        print(f"\n Function: @{function['name']}")
+        cfg = gen_cfg(block(function))
+        print(cfg)
 
 if __name__ == "__main__":
     main()
