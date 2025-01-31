@@ -1,0 +1,6 @@
+Lesson 2 Task Code – Kabir Samsi (kas499)
+
+Benchmark PR: https://github.com/sampsyo/bril/pull/366
+Bril Analysis Tool: https://github.com/KabirSamsi/advanced-compilers/blob/main/lesson2/variable_analysis.py
+CFG Generation: https://github.com/KabirSamsi/advanced-compilers/blob/main/lesson2/cfg.py
+Discussion Post: https://github.com/sampsyo/cs6120/discussions/450#discussioncomment-12004385
