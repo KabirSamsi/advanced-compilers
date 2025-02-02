@@ -133,7 +133,8 @@ const removeUnusedDeclarations = (instructions : Array<object>) : Array<Array<ob
         }
         optimizedBlocks.push(result);
     }
-    return flatten(optimizedBlocks);
+    let result = flatten(optimizedBlocks);
+    return result;
 }
 
 // Main loop
@@ -152,7 +153,7 @@ async function main() {
             // Iterate until convergence
             while (prev_length > optimized.length) {
                 prev_length = optimized.length;
-                optimized = removeUnusedDeclarations(removeUnused(instructions));
+                optimized = removeUnusedDeclarations(removeUnused(optimized));
             }
 
             let new_function : object = {"name" : fn.name, "instrs": optimized};

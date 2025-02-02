@@ -1,4 +1,4 @@
-files=(combo diamond double double-pass reassign simple skipped) 
+files=(combo diamond double double-pass reassign reassign-dkp simple skipped) 
 for n in ${files[@]}; 
 do
     echo $n".bril"
