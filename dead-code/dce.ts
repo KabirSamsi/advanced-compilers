@@ -9,7 +9,11 @@ type brilProgram = {functions?: Array<brilFunction>};
 type lvnEntry = {expr?: any, variable : string};
 type lvntable = Array<lvnEntry>;
 
-// Flatten matrix to array (use after basic blocking is done to reform original program)
+/*
+    Flatten an Array<Array<any>> to a flat Array<any>.
+    @param instrs – The set of initial, unblocked instructions.
+    @return – A series of blocks marked with their corresponding labels.
+*/
 const flatten = (arr : Array<Array<any>>) : Array<any> => {
     let result : Array<any> = [];
     for (let row of arr) {
@@ -20,8 +24,12 @@ const flatten = (arr : Array<Array<any>>) : Array<any> => {
     return result;
 }
 
-// Generates a series of basic blocks from a given function
-const block = (instrs : Array<brilInstruction>) => {
+/*
+    Generate a series of basic blocks from a given instructions.
+    @param instrs – The set of initial, unblocked instructions.
+    @return – A series of blocks marked with their corresponding labels.
+*/
+const block = (instrs : Array<brilInstruction>) : Map<string, Array<brilInstruction>> => {
     // Store all labeled blocks    
     let blocks : Map<string, Array<brilInstruction>> = new Map<string, Array<brilInstruction>>();
     let label_order : Array<String> = ["start"];
@@ -59,7 +67,13 @@ const block = (instrs : Array<brilInstruction>) => {
     return blocks;
 }
 
-// Make a pass over a set of instructions and remove any dead ones
+/*
+    Make a pass over a set of instructions.
+    Remove any declarations that are not further referenced.
+    Iterates til convergence (until making a pass removes no further instructions).
+    @param instructions – List of Bril instructions to be optimized.
+    @return – Array of Bril instructions with any unused variables removed.
+*/
 const removeUnused = (instructions : Array<brilInstruction>) : Array<brilInstruction> => {
     // Maps each variable to whether it gets referenced in the future or not
     let unused : Set<string> = new Set<string>();
@@ -97,7 +111,11 @@ const removeUnused = (instructions : Array<brilInstruction>) : Array<brilInstruc
     return results;
 }
 
-// Remove instances where a variable is assigned to, and that value is not used at all.
+/*
+    Remove instances where a variable is assigned to, and that value is not used at all.
+    @param instructions – Array of Bril instructions to be optimized.
+    @return – Array of Bril instructions with any unused declarations removed.
+*/
 const removeUnusedDeclarations = (instructions : Array<brilInstruction>) : Array<brilInstruction> => {
     let blocked : Map<string, Array<brilInstruction>> = block(instructions);
     let optimizedBlocks : Array<Array<brilInstruction>> = [];
@@ -110,14 +128,15 @@ const removeUnusedDeclarations = (instructions : Array<brilInstruction>) : Array
 
         for (let instruction of basicBlock[1]) {
 
+            // Scan for any usages of variables
             if (instruction.args) {
-                // Scan for any usages of variables
                 for (let arg of instruction.args) {
                     // Set to -1 as it has been referenced
                     usages.set(arg, -1);
                 }
             }
 
+            // Scan for initialization of variables
             if (instruction.dest) {
                 if (usages.has(instruction.dest)) {
                     // If there was an (unitialized) value previously stored there, kick it out
@@ -134,8 +153,12 @@ const removeUnusedDeclarations = (instructions : Array<brilInstruction>) : Array
     return flatten(optimizedBlocks);
 }
 
-// Eliminate all dead code until convergence from a given Bril function
-const deadCodeElimination = (fn : brilFunction) => {
+/*
+    Eliminate all dead code until convergence from a given Bril function.
+    @param fn – Bril function whose dead code is to be eliminated.
+    @return – Array of Bril instructions with any dead code removed.
+*/
+const deadCodeElimination = (fn : brilFunction) : Array<brilInstruction> => {
     const instructions : Array<brilInstruction> = fn.instrs || [];
     let optimized : Array<brilInstruction> = removeUnusedDeclarations(removeUnused(instructions));
     let prev_length : number = instructions.length;
@@ -148,14 +171,22 @@ const deadCodeElimination = (fn : brilFunction) => {
     return optimized;
 }
 
-// Local value numbering
+/*
+    (UNIMPLEMENTED)    
+    Locally number values and eliminate repeated value initializations.
+    @param fn – Bril function whose dead code is to be eliminated.
+    @return – Array of Bril instructions with repeated instructions factored out.
+*/
 const localValueNumbering = (fn : brilFunction) : Array<brilInstruction> => {
     const instructions : Array<brilInstruction> = fn.instrs || [];
     const blocked : Map<string, Array<brilInstruction>> = block(instructions);
     return instructions;
 }
 
-// Main loop
+/*
+    Main function.
+    Open a file specified from the command line and run each function through DCE and LVN passes.
+*/
 async function main() {
     try {
         const fileData : string = await fs.readFile(process.argv[2], 'utf-8');
