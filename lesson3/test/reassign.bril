@@ -1,0 +1,6 @@
+@main {
+  a: int = const 100;
+  b: int = const 300;
+  a: int = const 424;
+  print a;
+}
