@@ -1,9 +1,9 @@
 import { promises as fs } from 'fs';
 
 // Bril program types
-type brilProgram = {functions?: any};
-type brilFunction = {instrs?: any; name?: any};
-type brilInstruction = {label?: any; dest?: any; op?: any; args?: any};
+type brilInstruction = {label?: string; dest?: string; op?: string; args?: string};
+type brilFunction = {instrs?: Array<brilInstruction>; name?: string};
+type brilProgram = {functions?: Array<brilFunction>};
 
 // Flatten matrix to array (use after basic blocking is done to reform original program)
 const flatten = (arr : Array<Array<any>>) : Array<any> => {
@@ -28,14 +28,14 @@ const block = (instrs : Array<brilInstruction>) => {
     for (let insn of instrs) {
 
         // End block if it is a label or a terminator
-        if (insn.hasOwnProperty("label")) {
+        if (insn.label) {
             label_order.push(insn.label);
             if (curr.length > 0) {
                 blocks.set(curr_label, curr);
             }
             curr_label = insn.label; // Update new label
             curr = [insn];
-        } else if (insn.hasOwnProperty("op")) {
+        } else if (insn.op) {
             curr.push(insn);
             if (insn.op == "jmp" || insn.op == "br") {
                 blocks.set(curr_label, curr);
@@ -62,16 +62,14 @@ const removeUnused = (instructions : Array<brilInstruction>) : Array<brilInstruc
 
     for (let instruction of instructions) {
         // Scan for variable assignment
-        if (instruction.hasOwnProperty("dest")) {
-            // Pattern match dest field by typecasting
+        if (instruction.dest) {
             if (!unused.has(instruction.dest)) {
                 unused.add(instruction.dest);
             }
         }
         
         // Scan for variable usage
-        if (instruction.hasOwnProperty("args")) {
-            // Pattern match args field by typecasting
+        if (instruction.args) {
             for (let arg of instruction.args) {
                 if (unused.has(arg)) {
                     unused.delete(arg);
@@ -83,7 +81,7 @@ const removeUnused = (instructions : Array<brilInstruction>) : Array<brilInstruc
     // Make a pass and only add in instructions that rely on variable usage
     let results : Array<brilInstruction> = [];
     for (let instruction of instructions) {
-        if (instruction.hasOwnProperty("dest")) {
+        if (instruction.dest) {
             if (!unused.has(instruction.dest)) {
                 results.push(instruction);
             }
@@ -108,7 +106,7 @@ const removeUnusedDeclarations = (instructions : Array<brilInstruction>) : Array
 
         for (let instruction of basicBlock[1]) {
 
-            if (instruction.hasOwnProperty("args")) {
+            if (instruction.args) {
                 // Scan for any usages of variables
                 for (let arg of instruction.args) {
                     // Set to -1 as it has been referenced
@@ -116,8 +114,7 @@ const removeUnusedDeclarations = (instructions : Array<brilInstruction>) : Array
                 }
             }
 
-            if (instruction.hasOwnProperty("dest")) {
-                // Pattern match dest field by typecasting
+            if (instruction.dest) {
                 if (usages.has(instruction.dest)) {
                     // If there was an (unitialized) value previously stored there, kick it out
                     if (usages.get(instruction.dest) != -1) {
@@ -141,8 +138,8 @@ async function main() {
         const result : brilProgram = {functions: []};
 
         // Iterate through each function defined in the Bril program
-        for (const fn of data.functions) {
-            const instructions : Array<brilInstruction> = fn.instrs;
+        for (const fn of data.functions || []) {
+            const instructions : Array<brilInstruction> = fn.instrs || [];
             let optimized : Array<brilInstruction> = removeUnusedDeclarations(removeUnused(instructions));
             let prev_length : number = instructions.length;
 
@@ -151,7 +148,9 @@ async function main() {
                 prev_length = optimized.length;
                 optimized = removeUnusedDeclarations(removeUnused(optimized));
             }
-            result.functions.push({"name" : fn.name, "instrs": optimized});
+            if (result.functions) {
+                result.functions.push({"name" : fn.name, "instrs": optimized});
+            }
         }
 
         console.log(JSON.stringify(result));
