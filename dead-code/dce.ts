@@ -1,5 +1,16 @@
 import { promises as fs } from 'fs';
 
+// Flatten matrix to array (use after basic blocking is done to reform original program)
+const flatten = (arr : Array<Array<any>>) : Array<any> => {
+    let result : Array<any> = [];
+    for (let row of arr) {
+        for (let elem of row) {
+            result.push(elem);
+        }
+    }
+    return result;
+}
+
 // Generates a series of basic blocks from a given function
 const block = (instrs : Array<object>) => {
     // Store all labeled blocks    
@@ -26,12 +37,18 @@ const block = (instrs : Array<object>) => {
             if (labeledInsn.op == "jmp" || labeledInsn.op == "br") {
                 blocks.set(curr_label, curr);
                 curr = [];
+                curr_label = ""; // Until we have a new starting label, treat as dead code
             }
         } else {
             curr.push(insn);
         }
     }
     blocks.set(curr_label, curr);
+
+    if (blocks.has("")) {
+        blocks.delete("");
+    }
+    
     return blocks;
 }
 
@@ -90,6 +107,16 @@ const removeUnusedDeclarations = (instructions : Array<object>) : Array<Array<ob
         let result : Array<object> = [];
 
         for (let instruction of basicBlock[1]) {
+
+            if (instruction.hasOwnProperty("args")) {
+                // Scan for any usages of variables
+                const obj : { [args : string] : any } = instruction;
+                for (let arg of obj.args) {
+                    // Set to -1 as it has been referenced
+                    usages.set(arg, -1);
+                }
+            }
+
             if (instruction.hasOwnProperty("dest")) {
                 // Pattern match dest field by typecasting
                 const obj: { [dest: string]: any } = instruction;
@@ -102,30 +129,11 @@ const removeUnusedDeclarations = (instructions : Array<object>) : Array<Array<ob
                 usages.set(obj.dest, result.length);
             }
 
-            if (instruction.hasOwnProperty("args")) {
-                // Scan for any usages of variables
-                const obj : { [args : string] : any } = instruction;
-                for (let arg of obj.args) {
-                    // Set to -1 as it has been referenced
-                    usages.set(arg, -1);
-                }
-            }
             result.push(instruction);
         }
         optimizedBlocks.push(result);
     }
-    return optimizedBlocks;
-}
-
-// Flatten matrix to array (use after basic blocking is done to reform original program)
-const flatten = (arr : Array<Array<any>>) : Array<any> => {
-    let result : Array<any> = [];
-    for (let row of arr) {
-        for (let elem of row) {
-            result.push(elem);
-        }
-    }
-    return result;
+    return flatten(optimizedBlocks);
 }
 
 // Main loop
@@ -138,13 +146,13 @@ async function main() {
         // Iterate through each function defined in the Bril program
         for (const fn of data.functions) {
             const instructions : Array<object> = fn.instrs;
-            let optimized : Array<object> = flatten(removeUnusedDeclarations(removeUnused(instructions)));
+            let optimized : Array<object> = removeUnusedDeclarations(removeUnused(instructions));
             let prev_length : number = instructions.length;
 
             // Iterate until convergence
             while (prev_length > optimized.length) {
                 prev_length = optimized.length;
-                optimized = flatten(removeUnusedDeclarations(removeUnused(instructions)));
+                optimized = removeUnusedDeclarations(removeUnused(instructions));
             }
 
             let new_function : object = {"name" : fn.name, "instrs": optimized};
@@ -154,7 +162,7 @@ async function main() {
         console.log(JSON.stringify(result_object));
 
     } catch (e) {
-        console.log("Error " + e);
+        console.log(`Error: ${e}`);
     }
 }
 
