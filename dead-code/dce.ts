@@ -133,8 +133,7 @@ const removeUnusedDeclarations = (instructions : Array<object>) : Array<Array<ob
         }
         optimizedBlocks.push(result);
     }
-    let result = flatten(optimizedBlocks);
-    return result;
+    return flatten(optimizedBlocks);
 }
 
 // Main loop
