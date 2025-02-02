@@ -1,5 +1,4 @@
-import fs from 'fs'
-import * as data from './test/double.json'
+import { promises as fs } from 'fs';
 
 // Make a pass over a set of instructions and remove any dead ones
 const removeUnused = (instructions : Array<object>) : Array<object> => {
@@ -78,31 +77,38 @@ const removeUnusedDeclarations = (instructions : Array<object>) : Array<object> 
 }
 
 // Main loop
-const main = () => {
-    let result_object : {functions : Array<object>} = {functions: []};
-    // Iterate through each function defined in the Bril program
-    for (const fn of data.functions) {
-        const instructions : Array<object> = fn.instrs;
-        let optimized : Array<object> = removeUnused(instructions);
-        let prev_length : number = instructions.length;
+async function main() {
+    try {
+        const fileData : string = await fs.readFile(`./test/${process.argv[2]}.json`, 'utf-8');
+        const data : { [functions: string] : any } = JSON.parse(fileData);
+        let result_object : {functions : Array<object>} = {functions: []};
 
-        // Iterate until convergence
-        while (prev_length > optimized.length) {
-            prev_length = optimized.length;
-            optimized = removeUnusedDeclarations(removeUnused(optimized));
+        // Iterate through each function defined in the Bril program
+        for (const fn of data.functions) {
+            const instructions : Array<object> = fn.instrs;
+            let optimized : Array<object> = removeUnused(instructions);
+            let prev_length : number = instructions.length;
+
+            // Iterate until convergence
+            while (prev_length > optimized.length) {
+                prev_length = optimized.length;
+                optimized = removeUnusedDeclarations(removeUnused(optimized));
+            }
+
+            let new_function : object = {"name" : fn.name, "instrs": optimized};
+            result_object.functions.push(new_function);
         }
 
-        let new_function : object = {"name" : fn.name, "instrs": optimized};
-        result_object.functions.push(new_function);
-    }
-
-    fs.writeFile('./test/double_optimized.json', JSON.stringify(result_object), (err) => {
-        if (err) {
-            console.log('Error writing file:', err);
-        } else {
+        try {
+            await fs.writeFile(`./test/${process.argv[2]}_optimized.json`, JSON.stringify(result_object));
             console.log("Optimized output written successfully.");
+        } catch(err) {
+            console.log('Error writing file:', err);
         }
-    });
+
+    } catch (err) {
+        console.log('Error reading file:', err);
+    }
 }
 
 main();
