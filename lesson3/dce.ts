@@ -99,6 +99,8 @@ const main = () => {
     fs.writeFile('./test/double_optimized.json', JSON.stringify(result_object), (err) => {
         if (err) {
             console.log('Error writing file:', err);
+        } else {
+            console.log("Optimized output written successfully.");
         }
     });
 }
