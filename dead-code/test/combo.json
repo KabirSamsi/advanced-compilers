@@ -6,7 +6,7 @@
           "dest": "a",
           "op": "const",
           "type": "int",
-          "value": 4
+          "value": 1
         },
         {
           "dest": "b",
@@ -15,10 +15,19 @@
           "value": 2
         },
         {
+          "args": [
+            "a",
+            "b"
+          ],
           "dest": "c",
+          "op": "add",
+          "type": "int"
+        },
+        {
+          "dest": "b",
           "op": "const",
           "type": "int",
-          "value": 1
+          "value": 3
         },
         {
           "args": [
@@ -26,15 +35,6 @@
             "b"
           ],
           "dest": "d",
-          "op": "add",
-          "type": "int"
-        },
-        {
-          "args": [
-            "c",
-            "d"
-          ],
-          "dest": "e",
           "op": "add",
           "type": "int"
         },

@@ -1,1 +1,0 @@
-{"functions":[{"name":"main","instrs":[{"dest":"a","op":"const","type":"int","value":424},{"args":["a"],"op":"print"}]}]}

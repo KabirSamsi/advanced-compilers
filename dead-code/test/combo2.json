@@ -1,0 +1,1 @@
+{"functions":[{"name":"main","instrs":[{"dest":"a","op":"const","type":"int","value":1},{"dest":"b","op":"const","type":"int","value":3},{"args":["a","b"],"dest":"d","op":"add","type":"int"},{"args":["d"],"op":"print"}]}]}
