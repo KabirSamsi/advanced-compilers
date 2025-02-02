@@ -5,6 +5,10 @@ type brilInstruction = {label?: string; dest?: string; op?: string; args?: strin
 type brilFunction = {instrs?: Array<brilInstruction>; name?: string};
 type brilProgram = {functions?: Array<brilFunction>};
 
+// Local-Value Numbering Types
+type lvnEntry = {expr?: any, variable : string};
+type lvntable = Array<lvnEntry>;
+
 // Flatten matrix to array (use after basic blocking is done to reform original program)
 const flatten = (arr : Array<Array<any>>) : Array<any> => {
     let result : Array<any> = [];
@@ -130,6 +134,27 @@ const removeUnusedDeclarations = (instructions : Array<brilInstruction>) : Array
     return flatten(optimizedBlocks);
 }
 
+// Eliminate all dead code until convergence from a given Bril function
+const deadCodeElimination = (fn : brilFunction) => {
+    const instructions : Array<brilInstruction> = fn.instrs || [];
+    let optimized : Array<brilInstruction> = removeUnusedDeclarations(removeUnused(instructions));
+    let prev_length : number = instructions.length;
+
+    // Iterate until convergence
+    while (prev_length > optimized.length) {
+        prev_length = optimized.length;
+        optimized = removeUnusedDeclarations(removeUnused(optimized));
+    }
+    return optimized;
+}
+
+// Local value numbering
+const localValueNumbering = (fn : brilFunction) : Array<brilInstruction> => {
+    const instructions : Array<brilInstruction> = fn.instrs || [];
+    const blocked : Map<string, Array<brilInstruction>> = block(instructions);
+    return instructions;
+}
+
 // Main loop
 async function main() {
     try {
@@ -139,20 +164,10 @@ async function main() {
 
         // Iterate through each function defined in the Bril program
         for (const fn of data.functions || []) {
-            const instructions : Array<brilInstruction> = fn.instrs || [];
-            let optimized : Array<brilInstruction> = removeUnusedDeclarations(removeUnused(instructions));
-            let prev_length : number = instructions.length;
-
-            // Iterate until convergence
-            while (prev_length > optimized.length) {
-                prev_length = optimized.length;
-                optimized = removeUnusedDeclarations(removeUnused(optimized));
-            }
             if (result.functions) {
-                result.functions.push({"name" : fn.name, "instrs": optimized});
+                result.functions.push({"name" : fn.name, "instrs": deadCodeElimination(fn)});
             }
         }
-
         console.log(JSON.stringify(result));
 
     } catch (e) {
