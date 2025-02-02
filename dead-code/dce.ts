@@ -128,7 +128,6 @@ const removeUnusedDeclarations = (instructions : Array<object>) : Array<Array<ob
                 }
                 usages.set(obj.dest, result.length);
             }
-
             result.push(instruction);
         }
         optimizedBlocks.push(result);
