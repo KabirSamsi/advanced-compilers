@@ -1,16 +1,45 @@
-import { promises as fs } from 'fs';
+
+import { stdin } from "process";
 
 // Bril program types
-type brilInstruction = {label?: string; dest?: string; op?: string; args?: Array<string>, functions?: Array<string>, labels?: Array<string>, value?: any, type?: any};
-type brilFunction = {instrs?: Array<brilInstruction>; name?: string};
+type brilInstruction = {
+    label?: string;
+    dest?: string;
+    op?: string;
+    args?: Array<string>,
+    functions?: Array<string>,
+    labels?: Array<string>,
+    value?: any,
+    type?: any
+};
+
+type brilFunction = {
+    instrs?: Array<brilInstruction>;
+    name?: string
+};
+
 type brilProgram = {functions?: Array<brilFunction>};
 
+// LVN Usage Types
 type lvnExpr =
-| {name : "const", value: any, type : any}
-| {name : "op", op : string | undefined, args : (Array<number> | undefined),  type : any, functions : (Array<string> | undefined), labels : (Array<string> | undefined)}
+| {
+    name : "const",
+    value: any,
+    type : any
+  }
+| {
+    name : "op",
+    op : string | undefined,
+    args : (Array<number> | undefined),
+    type : any,
+    functions : (Array<string> | undefined),
+    labels : (Array<string> | undefined)
+  }
 
-// Local-Value Numbering Types
-type lvnEntry = {expr?: lvnExpr, variable : string};
+type lvnEntry = {
+    expr?: lvnExpr,
+    variable : string
+};
 type lvntable = Array<lvnEntry>;
 type store = Map<string, number>;
 
@@ -402,27 +431,36 @@ const localValueNumbering = (instructions : Array<brilInstruction>) : Array<bril
     Main function.
     Open a file specified from the command line and run each function through DCE and LVN passes.
 */
-async function main() {
-    try {
-        const fileData : string = await fs.readFile(process.argv[2], 'utf-8');
-        const data : brilProgram = JSON.parse(fileData);
-        const result : brilProgram = {functions: []};
+const main = () => {
+    process.stdin.setEncoding("utf8");
+    let dataString : string = "";
 
-        // Iterate through each function defined in the Bril program
-        for (const fn of data.functions || []) {
-            if (result.functions) {
-                let pass : Array<brilInstruction> = deadCodeElimination(fn.instrs || []);
-                pass = localValueNumbering(pass);
-                pass = deadCodeElimination(pass);
+    stdin.on("data", chunk => {
+        dataString += chunk;
+    });
+    
+    stdin.on("end", () => {
+        
+        try {
+            const data = JSON.parse(dataString);
+            const result : brilProgram = {functions: []};
 
-                result.functions.push({"name" : fn.name, "instrs": pass});
+            // Iterate through each function defined in the Bril program
+            for (const fn of data.functions || []) {
+                if (result.functions) {
+                    let pass : Array<brilInstruction> = deadCodeElimination(fn.instrs || []);
+                    pass = localValueNumbering(pass);
+                    pass = deadCodeElimination(pass);
+        
+                    result.functions.push({"name" : fn.name, "instrs": pass});
+                }
             }
-        }
-        console.log(JSON.stringify(result));
+            console.log(JSON.stringify(result));
 
-    } catch (e) {
-        console.log(`Error: ${e}`);
-    }
+        } catch (error) {
+            console.error("Invalid JSON:", error);
+        }
+    });
 }
 
 main();

@@ -5,6 +5,6 @@ do
     printf "\nInitial Implementation\n"
     cat test/$n.bril
     printf "\nFinal Implementation\n"
-    bril2json < test/$n.bril > test/$n.json && node dce.js test/$n.json | bril2txt
+    bril2json < test/$n.bril | node dce.js | bril2txt
     printf "\n"
 done
