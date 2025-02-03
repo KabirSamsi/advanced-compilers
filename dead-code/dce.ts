@@ -182,24 +182,21 @@ const deadCodeElimination = (instructions : Array<brilInstruction>) : Array<bril
     Locally number values within a basic block and eliminate repeated value initializations.
     @param fn – Bril function whose dead code is to be eliminated.
     @return – Array of Bril instructions with repeated instructions factored out.
-    Notes for more complex optimizations:
-    - If the command is 'id', just draw a new pointer in the table. Add an instruction that would do ID as well.                    
-        - For more complex pass – store table of 'order-irrelevant' commands.
-            - If the op here is order-irrelevant, sort the arguments.
-    - Check if the resultant expression already exists in the table
-        - If so, just create a pointer
-        - Otherwise, make a new row element
-        - If the op here is order-irrelevant, sort the arguments.
 */
 const valueBlock  = (block : Array<brilInstruction>) : Array<brilInstruction> => {
+    // Final parsing result
     let result : Array<brilInstruction> = [];
+    
+    // Stores LVN expressions
     let lvnTable : lvntable = [];
+    
+    // Maps variables to their LVN table rows
     let store : store = new Map<string, number>();
+    
+    // Maps JSON parsing of LVN table entries to their rows
     const valueIdx : Map<string, number> = new Map<string, number>();
 
-    // Iterate through each block
     for (let instruction of block) {
-        
         /*
             * If the instruction is a label or jump, don't update the table.
             * Only add it to the resultant list of instructions.
@@ -214,8 +211,13 @@ const valueBlock  = (block : Array<brilInstruction>) : Array<brilInstruction> =>
             * Otherwise, add it to the list of instructions.
         */
         } else if (instruction.dest && instruction.op == "const") {
-            let parsed : lvnExpr = {name: "const", value : instruction.value, type: instruction.type};
-            let parsedRepr : string = JSON.stringify({name: "const", value : instruction.value});
+            let parsed : lvnExpr = {
+                name: "const",
+                value : instruction.value,
+                type: instruction.type
+            };
+
+            let parsedRepr : string = JSON.stringify(parsed);
 
             if (valueIdx.has(parsedRepr)) {
                 // Find location within table, update pointer, and add id pointer to instruction set
@@ -223,6 +225,7 @@ const valueBlock  = (block : Array<brilInstruction>) : Array<brilInstruction> =>
                 if (idxptr == undefined) {
                     idxptr = -1;
                 }
+
                 store.set(instruction.dest, idxptr);
                 result.push({
                     dest : instruction.dest,
@@ -246,15 +249,19 @@ const valueBlock  = (block : Array<brilInstruction>) : Array<brilInstruction> =>
         */
         
         } else if (instruction.args) {
-        
             /*  If the instruction does not have a destination (no assignment),
                 just substitute the arguments in */
             if (!instruction.dest) {
                 // Index each arg based on its pointer as a variable in the table
                 let argMappings : Array<string> = [];
+
                 for (let arg of instruction.args) {
                     if (store.has(arg)) {
-                        argMappings.push(lvnTable[store.get(arg) || -1].variable);
+                        let storeIdx : number | undefined = store.get(arg);
+                        if (storeIdx == undefined) {
+                            storeIdx = -1;
+                        }
+                        argMappings.push(lvnTable[storeIdx].variable);
                     } else {
                         argMappings.push(arg);
                     }
@@ -272,21 +279,50 @@ const valueBlock  = (block : Array<brilInstruction>) : Array<brilInstruction> =>
                 try to replace its arguments and remove it if possible
             */
             } else if (instruction.dest) {
-                // Index each arg based on its pointer as a variable in the table
-                let argMappings : Array<number> = [];
-                for (let arg of instruction.args) {
-                    let stored = store.get(arg);
-                    if (stored == undefined) {
-                        argMappings.push(-1);
-                    } else {
-                        argMappings.push(stored);
-                    }
-                }
-                
-                /* 
-                    Parse to an LVN expression which can be looked up.
-                    Make arguments order-independent for commutative operations.
+                /*
+                    * If the command is 'id', just draw a new pointer in the table.
+                    * Add an instruction that would do ID as well.                    
                 */
+                if (instruction.op && instruction.op == "id") {
+                    let var_dest : number | undefined = store.get(instruction.args[0]);
+                    if (var_dest == undefined) {
+                        var_dest = -1;
+                    }
+
+                    let arg_dest : string;
+                    if (var_dest == -1) {
+                        arg_dest = instruction.args[0];
+                    } else {
+                        store.set(instruction.dest, var_dest);
+                        arg_dest = lvnTable[var_dest].variable;
+                    }
+                    
+                    result.push({
+                        dest : instruction.dest,
+                        op : "id",
+                        args : [arg_dest],
+                        type : instruction.type,
+                        functions : instruction.functions,
+                        labels : instruction.labels
+                    });
+                
+                } else { // Otherwise, handle properly
+                    // Index each arg based on its pointer as a variable in the table
+                    let argMappings : Array<number> = [];
+                    for (let arg of instruction.args) {
+                        let stored = store.get(arg);
+
+                        if (stored == undefined) {
+                            argMappings.push(-1);
+                        } else {
+                            argMappings.push(stored);
+                        }
+                    }
+                    
+                    /* 
+                        Parse to an LVN expression which can be looked up.
+                        Make arguments order-independent for commutative operations.
+                    */
                     let parsedInsn : lvnExpr = {
                         name : "op",
                         op : instruction.op,
@@ -296,42 +332,49 @@ const valueBlock  = (block : Array<brilInstruction>) : Array<brilInstruction> =>
                         type : instruction.type
                     }
 
-               if (orderIrrelevant.has(instruction.op)) {
-                    parsedInsn.args = argMappings.sort();
-               } else {
-                    parsedInsn.args = argMappings;
-               }
-
-                let parsedRepr : string = JSON.stringify(parsedInsn);
-    
-                // If this instruction already exists, then just re-reference as an id
-                if (valueIdx.has(parsedRepr)) {
-                    let idxptr : number = valueIdx.get(parsedRepr) || -1;
-                    store.set(instruction.dest, idxptr);
-                    result.push({
-                        dest : instruction.dest,
-                        args : [lvnTable[idxptr].variable],
-                        op : "id",
-                        type : instruction.type
-                    });
-    
-                } else {
-                    store.set(instruction.dest, lvnTable.length);
-                    valueIdx.set(parsedRepr, lvnTable.length);
-                    lvnTable.push({expr : parsedInsn, variable : instruction.dest});
-                    let varMappings : Array<string> = [];
-                    for (let arg of argMappings) {
-                        varMappings.push(lvnTable[arg].variable);
+                    // If the command is order-irrelevant, sort its arguments.
+                    if (orderIrrelevant.has(instruction.op)) {
+                        parsedInsn.args = argMappings.sort();
+                    } else {
+                        parsedInsn.args = argMappings;
                     }
 
-                    result.push({
-                        dest : instruction.dest,
-                        args : varMappings,
-                        op : instruction.op,
-                        type : instruction.type,
-                        functions : instruction.functions,
-                        labels :  instruction.labels
-                    });
+                    let parsedRepr : string = JSON.stringify(parsedInsn);
+        
+                    // If this instruction already exists, then just re-reference as an id
+                    if (valueIdx.has(parsedRepr)) {
+                        let idxptr : number = valueIdx.get(parsedRepr) || -1;
+                        store.set(instruction.dest, idxptr);
+                        result.push({
+                            dest : instruction.dest,
+                            args : [lvnTable[idxptr].variable],
+                            op : "id",
+                            type : instruction.type
+                        });
+        
+                    } else {
+                        store.set(instruction.dest, lvnTable.length);
+                        valueIdx.set(parsedRepr, lvnTable.length);
+                        lvnTable.push({expr : parsedInsn, variable : instruction.dest});
+                        let varMappings : Array<string> = [];
+
+                        for (let i = 0; i < argMappings.length; i++) {
+                            if (argMappings[i] == -1) {
+                                varMappings.push(instruction.args[i]);
+                            } else {
+                                varMappings.push(lvnTable[argMappings[i]].variable);
+                            }
+                        }
+
+                        result.push({
+                            dest : instruction.dest,
+                            args : varMappings,
+                            op : instruction.op,
+                            type : instruction.type,
+                            functions : instruction.functions,
+                            labels :  instruction.labels
+                        });
+                    }
                 }
             }
         }
