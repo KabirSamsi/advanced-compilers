@@ -1,13 +1,20 @@
 import { promises as fs } from 'fs';
+import { parse } from 'path';
 
 // Bril program types
-type brilInstruction = {label?: string; dest?: string; op?: string; args?: string};
+type brilInstruction = {label?: string; dest?: string; op?: string; args?: Array<string>, functions?: Array<string>, labels?: Array<string>, value?: any};
 type brilFunction = {instrs?: Array<brilInstruction>; name?: string};
 type brilProgram = {functions?: Array<brilFunction>};
 
+type lvnExpr =
+| {name : "noop"}
+| {name : "const", value: any}
+| {name : "op", op : string | undefined, args : (Array<number> | undefined), functions : (Array<string> | undefined), labels : (Array<string> | undefined)}
+
 // Local-Value Numbering Types
-type lvnEntry = {expr?: any, variable : string};
+type lvnEntry = {expr?: lvnExpr, variable : string};
 type lvntable = Array<lvnEntry>;
+type store = Map<string, number>;
 
 /*
     Flatten an Array<Array<any>> to a flat Array<any>.
@@ -29,7 +36,7 @@ const flatten = (arr : Array<Array<any>>) : Array<any> => {
     @param instrs – The set of initial, unblocked instructions.
     @return – A series of blocks marked with their corresponding labels.
 */
-const block = (instrs : Array<brilInstruction>) : Map<string, Array<brilInstruction>> => {
+const basicBlock = (instrs : Array<brilInstruction>) : Map<string, Array<brilInstruction>> => {
     // Store all labeled blocks    
     let blocks : Map<string, Array<brilInstruction>> = new Map<string, Array<brilInstruction>>();
     let label_order : Array<String> = ["start"];
@@ -117,16 +124,16 @@ const removeUnused = (instructions : Array<brilInstruction>) : Array<brilInstruc
     @return – Array of Bril instructions with any unused declarations removed.
 */
 const removeUnusedDeclarations = (instructions : Array<brilInstruction>) : Array<brilInstruction> => {
-    let blocked : Map<string, Array<brilInstruction>> = block(instructions);
+    let blocked : Map<string, Array<brilInstruction>> = basicBlock(instructions);
     let optimizedBlocks : Array<Array<brilInstruction>> = [];
 
-    for (let basicBlock of blocked) {
+    for (let block of blocked) {
 
         // Cache the most previous assignment; remove it if referenced.
         let usages : Map<string, number> = new Map<string, number>();
         let result : Array<brilInstruction> = [];
 
-        for (let instruction of basicBlock[1]) {
+        for (let instruction of block[1]) {
 
             // Scan for any usages of variables
             if (instruction.args) {
@@ -172,15 +179,136 @@ const deadCodeElimination = (fn : brilFunction) : Array<brilInstruction> => {
 }
 
 /*
-    (UNIMPLEMENTED)    
-    Locally number values and eliminate repeated value initializations.
+    Locally number values within a basic block and eliminate repeated value initializations.
+    @param fn – Bril function whose dead code is to be eliminated.
+    @return – Array of Bril instructions with repeated instructions factored out.
+*/
+const valueBlock  = (block : Array<brilInstruction>) : Array<brilInstruction> => {
+    let result : Array<brilInstruction> = [];
+    let lvnTable : lvntable = [];
+    let store : store = new Map<string, number>();
+    const valueIdx : Map<lvnExpr, number> = new Map<lvnExpr, number>();
+
+    // Iterate through each block
+    for (let instruction of block) {
+        if (!instruction.op || (instruction.op && instruction.op == "jmp")) {
+            result.push(instruction);
+
+        } else if (instruction.dest && instruction.op == "const") {
+            let parsed : lvnExpr = {name: "const", value : instruction.value};
+
+            if (valueIdx.has(parsed)) {
+                
+                // Find location within table, update pointer, and add id pointer to instruction set
+                let idxptr : number = (valueIdx.get(parsed) || -1);
+                store.set(instruction.dest, idxptr);
+                result.push({
+                    dest : instruction.dest,
+                    args : [lvnTable[idxptr].variable],
+                    op : "id"
+                });
+
+            } else { // If not present in table, add it in and push instruction
+                valueIdx.set({name : "const", value : instruction.value}, lvnTable.length);
+                lvnTable.push({expr: parsed, variable : instruction.dest})
+                result.push(instruction);
+            }
+
+        } else if (instruction.args) {
+        
+            // If the instruction does not have a destination, just substitute the arguments in
+            if (!instruction.dest) {
+                // Index each arg based on its pointer as a variable in the table
+                let argMappings : Array<string> = [];
+                for (let arg of instruction.args) {
+                    argMappings.push(lvnTable[store.get(arg) || -1].variable);
+                }
+                result.push({op : instruction.op, args : argMappings, functions : instruction.functions, labels : instruction.labels});
+            
+            // If the instruction has a destination, try to replace its arguments and remove it if possible
+            } else if (instruction.dest) {
+                // Index each arg based on its pointer as a variable in the table
+                let argMappings : Array<number> = [];
+                for (let arg of instruction.args) {
+                    argMappings.push(store.get(arg) || -1);
+                }
+                // Parse to an LVN expression which can be looked up.
+                // Consider making arguments order-independent for commutative operations.
+                let parsedInsn : lvnExpr = {
+                    name : "op",
+                    op : instruction.op,
+                    args : argMappings,
+                    functions : instruction.functions,
+                    labels : instruction.labels
+                }
+    
+                // If this instruction already exists, then just re-reference as an id
+                if (valueIdx.has(parsedInsn)) {
+                    let idxptr : number = valueIdx.get(parsedInsn) || -1;
+                    store.set(instruction.dest, idxptr);
+                    result.push({
+                        dest : instruction.dest,
+                        args : [lvnTable[idxptr].variable],
+                        op : "id"
+                    });
+    
+                } else {
+                    store.set(instruction.dest, lvnTable.length);
+                    valueIdx.set(parsedInsn, lvnTable.length);
+                    lvnTable.push({expr : parsedInsn, variable : instruction.dest});
+                    result.push(instruction);
+                }
+            }
+        }
+
+        /* Algorithm:
+        
+        for each instruction:
+            if it is a label or jump:
+                don't update the table;
+                add it to the resultant list of instructions
+            
+            if it is a const:
+                Look it up in the table.
+                If it is present, just point this variable to that position
+                    Add an identity pointer to the list of instructions (id <canonical home>)
+                Otherwise
+                    Add it to the list of instructions
+
+        
+            if it contains arguments:
+                Look up each argument's number in the table
+                    Get its numerical index
+                Replace all arguments in the expression with their corresponding numbers
+                
+                If the command is 'id', just draw a new pointer in the table. Add an instruction that would do ID as well.
+                    
+                - For more complex pass – store table of 'order-irrelevant' commands.
+                    - If the op here is order-irrelevant, sort the arguments.
+                Check if the resultant expression already exists in the table
+                    If so, just create a pointer
+                    Otherwise, make a new row element
+                    - If the op here is order-irrelevant, sort the arguments.
+        */
+    }
+    return result;
+}
+
+/*
+    Apply local value numbering to the instructions comprising an entire function.
     @param fn – Bril function whose dead code is to be eliminated.
     @return – Array of Bril instructions with repeated instructions factored out.
 */
 const localValueNumbering = (fn : brilFunction) : Array<brilInstruction> => {
     const instructions : Array<brilInstruction> = fn.instrs || [];
-    const blocked : Map<string, Array<brilInstruction>> = block(instructions);
-    return instructions;
+    const blocked : Map<string, Array<brilInstruction>> = basicBlock(instructions);
+    let result : Array<Array<brilInstruction>> = [];
+
+    for (let block of blocked) {
+        result.push(valueBlock(block[1]));
+    }
+
+    return flatten(result);
 }
 
 /*
@@ -196,7 +324,11 @@ async function main() {
         // Iterate through each function defined in the Bril program
         for (const fn of data.functions || []) {
             if (result.functions) {
-                result.functions.push({"name" : fn.name, "instrs": deadCodeElimination(fn)});
+                let pass : Array<brilInstruction> = deadCodeElimination(fn);
+                // pass = localValueNumbering(fn);
+                // pass = deadCodeElimination(fn);
+
+                result.functions.push({"name" : fn.name, "instrs": pass});
             }
         }
         console.log(JSON.stringify(result));
