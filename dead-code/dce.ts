@@ -1,5 +1,4 @@
 import { promises as fs } from 'fs';
-import { parse } from 'path';
 
 // Bril program types
 type brilInstruction = {label?: string; dest?: string; op?: string; args?: Array<string>, functions?: Array<string>, labels?: Array<string>, value?: any};
@@ -221,7 +220,11 @@ const valueBlock  = (block : Array<brilInstruction>) : Array<brilInstruction> =>
                 // Index each arg based on its pointer as a variable in the table
                 let argMappings : Array<string> = [];
                 for (let arg of instruction.args) {
-                    argMappings.push(lvnTable[store.get(arg) || -1].variable);
+                    if (store.has(arg)) {
+                        argMappings.push(lvnTable[store.get(arg) || -1].variable);
+                    } else {
+                        argMappings.push(arg);
+                    }
                 }
                 result.push({op : instruction.op, args : argMappings, functions : instruction.functions, labels : instruction.labels});
             
@@ -325,8 +328,8 @@ async function main() {
         for (const fn of data.functions || []) {
             if (result.functions) {
                 let pass : Array<brilInstruction> = deadCodeElimination(fn);
-                // pass = localValueNumbering(fn);
-                // pass = deadCodeElimination(fn);
+                pass = localValueNumbering(fn);
+                pass = deadCodeElimination(fn);
 
                 result.functions.push({"name" : fn.name, "instrs": pass});
             }
