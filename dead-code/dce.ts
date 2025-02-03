@@ -14,6 +14,9 @@ type lvnEntry = {expr?: lvnExpr, variable : string};
 type lvntable = Array<lvnEntry>;
 type store = Map<string, number>;
 
+// Store order-irrelevant operations
+const orderIrrelevant : Set<string> = new Set<string>(["add", "mul"]);
+
 /*
     Flatten an Array<Array<any>> to a flat Array<any>.
     @param instrs – The set of initial, unblocked instructions.
@@ -179,6 +182,14 @@ const deadCodeElimination = (instructions : Array<brilInstruction>) : Array<bril
     Locally number values within a basic block and eliminate repeated value initializations.
     @param fn – Bril function whose dead code is to be eliminated.
     @return – Array of Bril instructions with repeated instructions factored out.
+    Notes for more complex optimizations:
+    - If the command is 'id', just draw a new pointer in the table. Add an instruction that would do ID as well.                    
+        - For more complex pass – store table of 'order-irrelevant' commands.
+            - If the op here is order-irrelevant, sort the arguments.
+    - Check if the resultant expression already exists in the table
+        - If so, just create a pointer
+        - Otherwise, make a new row element
+        - If the op here is order-irrelevant, sort the arguments.
 */
 const valueBlock  = (block : Array<brilInstruction>) : Array<brilInstruction> => {
     let result : Array<brilInstruction> = [];
@@ -188,9 +199,20 @@ const valueBlock  = (block : Array<brilInstruction>) : Array<brilInstruction> =>
 
     // Iterate through each block
     for (let instruction of block) {
+        
+        /*
+            * If the instruction is a label or jump, don't update the table.
+            * Only add it to the resultant list of instructions.
+        */
         if (!instruction.op || (instruction.op && instruction.op == "jmp")) {
             result.push(instruction);
 
+        /*
+            * If the variable is a const, look it up in the table.
+            * If it is present, point this variable to that table position.
+            * Add an identity pointer to the list of instructions (id <canonical home>)
+            * Otherwise, add it to the list of instructions.
+        */
         } else if (instruction.dest && instruction.op == "const") {
             let parsed : lvnExpr = {name: "const", value : instruction.value, type: instruction.type};
             let parsedRepr : string = JSON.stringify({name: "const", value : instruction.value});
@@ -216,9 +238,17 @@ const valueBlock  = (block : Array<brilInstruction>) : Array<brilInstruction> =>
                 result.push(instruction);
             }
 
+        /*
+            If the instruction contains arguments:
+            - Look up each argument's number in the table
+                - Get its numerical index
+            - Replace all arguments in the expression with their corresponding numbers
+        */
+        
         } else if (instruction.args) {
         
-            // If the instruction does not have a destination, just substitute the arguments in
+            /*  If the instruction does not have a destination (no assignment),
+                just substitute the arguments in */
             if (!instruction.dest) {
                 // Index each arg based on its pointer as a variable in the table
                 let argMappings : Array<string> = [];
@@ -229,6 +259,7 @@ const valueBlock  = (block : Array<brilInstruction>) : Array<brilInstruction> =>
                         argMappings.push(arg);
                     }
                 }
+
                 result.push({
                     op : instruction.op,
                     args : argMappings,
@@ -237,7 +268,9 @@ const valueBlock  = (block : Array<brilInstruction>) : Array<brilInstruction> =>
                     labels : instruction.labels
                 });
             
-            // If the instruction has a destination, try to replace its arguments and remove it if possible
+            /*  If the instruction has a destination,
+                try to replace its arguments and remove it if possible
+            */
             } else if (instruction.dest) {
                 // Index each arg based on its pointer as a variable in the table
                 let argMappings : Array<number> = [];
@@ -252,16 +285,22 @@ const valueBlock  = (block : Array<brilInstruction>) : Array<brilInstruction> =>
                 
                 /* 
                     Parse to an LVN expression which can be looked up.
-                    FLAG: Make arguments order-independent for commutative operations.
+                    Make arguments order-independent for commutative operations.
                 */
-                let parsedInsn : lvnExpr = {
-                    name : "op",
-                    op : instruction.op,
-                    args : argMappings,
-                    functions : instruction.functions,
-                    labels : instruction.labels,
-                    type : instruction.type
-                }
+                    let parsedInsn : lvnExpr = {
+                        name : "op",
+                        op : instruction.op,
+                        args : [],
+                        functions : instruction.functions,
+                        labels : instruction.labels,
+                        type : instruction.type
+                    }
+
+               if (orderIrrelevant.has(instruction.op)) {
+                    parsedInsn.args = argMappings.sort();
+               } else {
+                    parsedInsn.args = argMappings;
+               }
 
                 let parsedRepr : string = JSON.stringify(parsedInsn);
     
@@ -296,36 +335,6 @@ const valueBlock  = (block : Array<brilInstruction>) : Array<brilInstruction> =>
                 }
             }
         }
-
-        /* Algorithm:
-        
-        for each instruction:
-            if it is a label or jump:
-                don't update the table;
-                add it to the resultant list of instructions
-            
-            if it is a const:
-                Look it up in the table.
-                If it is present, just point this variable to that position
-                    Add an identity pointer to the list of instructions (id <canonical home>)
-                Otherwise
-                    Add it to the list of instructions
-
-        
-            if it contains arguments:
-                Look up each argument's number in the table
-                    Get its numerical index
-                Replace all arguments in the expression with their corresponding numbers
-                
-                If the command is 'id', just draw a new pointer in the table. Add an instruction that would do ID as well.
-                    
-                - For more complex pass – store table of 'order-irrelevant' commands.
-                    - If the op here is order-irrelevant, sort the arguments.
-                Check if the resultant expression already exists in the table
-                    If so, just create a pointer
-                    Otherwise, make a new row element
-                    - If the op here is order-irrelevant, sort the arguments.
-        */
     }
     return result;
 }
