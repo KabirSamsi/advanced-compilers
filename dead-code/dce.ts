@@ -15,7 +15,8 @@ type brilInstruction = {
 
 type brilFunction = {
     instrs?: Array<brilInstruction>;
-    name?: string
+    name?: string;
+    args?: Array<string>
 };
 
 type brilProgram = {functions?: Array<brilFunction>};
@@ -44,7 +45,9 @@ type lvntable = Array<lvnEntry>;
 type store = Map<string, number>;
 
 // Store order-irrelevant operations
-const orderIrrelevant : Set<string> = new Set<string>(["add", "mul"]);
+const orderIrrelevant : Set<string> = new Set<string>(["add", "mul", "eq", "ne", "and", "or"]);
+const arithReduce : Set<string> = new Set<string>(["add", "mul", "sub", "div"]);
+const boolReduce : Set<string> = new Set<string>(["and", "or", "eq", "le","ge", "lt", "gt", "ne"]);
 
 /*
     Flatten an Array<Array<any>> to a flat Array<any>.
@@ -220,10 +223,16 @@ const valueBlock  = (block : Array<brilInstruction>) : Array<brilInstruction> =>
     let lvnTable : lvntable = [];
     
     // Maps variables to their LVN table rows
-    let store : store = new Map<string, number>();
+    const store : store = new Map<string, number>();
     
     // Maps JSON parsing of LVN table entries to their rows
     const valueIdx : Map<string, number> = new Map<string, number>();
+
+    // Maps variables to their latest new name in the LVN table.
+    const newNaming : Map<string, string> = new Map<string, string>();
+    
+    // Count number of variable assignments made
+    let declarationsCounted : number = 0;
 
     for (let instruction of block) {
         /*
@@ -347,32 +356,123 @@ const valueBlock  = (block : Array<brilInstruction>) : Array<brilInstruction> =>
                             argMappings.push(stored);
                         }
                     }
+
+                    // Binary reduction for constant elements
+                    let arithReduceable : boolean = true;
+                    let booleanReduceable : boolean = true;
+                    let totalA : number = 0;
+                    let totalB : boolean = false;
+
+                    if (arithReduce.has(instruction.op)) {
+                        let arg1 : number = argMappings[0];
+                        let arg2 : number = argMappings[1];
+                        if (arg1 != -1 && arg2 != -1) {
+                            if (lvnTable[arg1].expr && lvnTable[arg1].expr.name == "const"
+                                &&
+                                lvnTable[arg2].expr && lvnTable[arg2].expr.name == "const"
+                            ) {
+                                if (instruction.op == "add") {
+                                    totalA = lvnTable[arg1].expr.value + lvnTable[arg2].expr.value;
+                                } else if (instruction.op == "mul") {
+                                    totalA = lvnTable[arg1].expr.value * lvnTable[arg2].expr.value;
+                                } else if (instruction.op == "sub") {
+                                    totalA = lvnTable[arg1].expr.value - lvnTable[arg2].expr.value;
+                                } else if (instruction.op == "div" && lvnTable[arg2].expr.value != 0) {
+                                    totalA = lvnTable[arg1].expr.value / lvnTable[arg2].expr.value;
+                                } else {
+                                    arithReduceable = false;
+                                }
+                            } else {
+                                arithReduceable = false;
+                            }
+
+                        } else {
+                            arithReduceable = false;
+                        }
+
+                    } else if (boolReduce.has(instruction.op)) {
+                        arithReduceable = false;
+                        let arg1 : number = argMappings[0];
+                        let arg2 : number = argMappings[1];
+                        if (arg1 != -1 && arg2 != -1) {
+                            if (lvnTable[arg1].expr && lvnTable[arg1].expr.name == "const"
+                                &&
+                                lvnTable[arg2].expr && lvnTable[arg2].expr.name == "const"
+                            ) {
+                                if (instruction.op == "eq") {
+                                    totalB = lvnTable[arg1].expr.value == lvnTable[arg2].expr.value;
+                                } else if (instruction.op == "ne") {
+                                    totalB = lvnTable[arg1].expr.value != lvnTable[arg2].expr.value;
+                                } else if (instruction.op == "ge") {
+                                    totalB = lvnTable[arg1].expr.value >= lvnTable[arg2].expr.value;
+                                } else if (instruction.op == "le") {
+                                    totalB = lvnTable[arg1].expr.value <= lvnTable[arg2].expr.value;
+                                } else if (instruction.op == "gt") {
+                                    totalB = lvnTable[arg1].expr.value > lvnTable[arg2].expr.value;
+                                } else if (instruction.op == "lt") {
+                                    totalB = lvnTable[arg1].expr.value < lvnTable[arg2].expr.value;
+                                } else if (instruction.op == "and") {
+                                    totalB = lvnTable[arg1].expr.value && lvnTable[arg2].expr.value;
+                                } else if (instruction.op == "or") {
+                                    totalB = lvnTable[arg1].expr.value || lvnTable[arg2].expr.value;
+                                } else {
+                                    booleanReduceable = false;
+                                }
+                            } else {
+                                booleanReduceable = false;
+                            }
+                        } else {
+                            booleanReduceable = false;
+                        } 
+
+                    } else {
+                        arithReduceable = false;
+                        booleanReduceable = false;
+                    }
                     
                     /* 
                         Parse to an LVN expression which can be looked up.
                         Make arguments order-independent for commutative operations.
                     */
-                    let parsedInsn : lvnExpr = {
-                        name : "op",
-                        op : instruction.op,
-                        args : [],
-                        functions : instruction.functions,
-                        labels : instruction.labels,
-                        type : instruction.type
-                    }
-
-                    // If the command is order-irrelevant, sort its arguments.
-                    if (orderIrrelevant.has(instruction.op)) {
-                        parsedInsn.args = argMappings.sort();
+                    let parsedInsn : lvnExpr;
+                    if (arithReduceable) {
+                        parsedInsn = {
+                            name : "const",
+                            value : totalA,
+                            type : instruction.type
+                        }
+                    } else if (booleanReduceable) {
+                        parsedInsn = {
+                            name : "const",
+                            value : totalB,
+                            type : instruction.type
+                        }
                     } else {
-                        parsedInsn.args = argMappings;
+                        parsedInsn = {
+                            name : "op",
+                            op : instruction.op,
+                            args : [],
+                            functions : instruction.functions,
+                            labels : instruction.labels,
+                            type : instruction.type
+                        }
+
+                        // If the command is order-irrelevant, sort its arguments.
+                        if (orderIrrelevant.has(instruction.op)) {
+                            parsedInsn.args = argMappings.sort();
+                        } else {
+                            parsedInsn.args = argMappings;
+                        }
                     }
 
                     let parsedRepr : string = JSON.stringify(parsedInsn);
         
                     // If this instruction already exists, then just re-reference as an id
                     if (valueIdx.has(parsedRepr)) {
-                        let idxptr : number = valueIdx.get(parsedRepr) || -1;
+                        let idxptr : number | undefined = valueIdx.get(parsedRepr);
+                        if (idxptr == undefined) {
+                            idxptr = -1;
+                        }
                         store.set(instruction.dest, idxptr);
                         result.push({
                             dest : instruction.dest,
@@ -395,14 +495,30 @@ const valueBlock  = (block : Array<brilInstruction>) : Array<brilInstruction> =>
                             }
                         }
 
-                        result.push({
-                            dest : instruction.dest,
-                            args : varMappings,
-                            op : instruction.op,
-                            type : instruction.type,
-                            functions : instruction.functions,
-                            labels :  instruction.labels
-                        });
+                        if (arithReduceable)  {
+                            result.push({
+                                dest : instruction.dest,
+                                value : totalA,
+                                op : "const",
+                                type : instruction.type
+                            });
+                        } else if (booleanReduceable)  {
+                            result.push({
+                                dest : instruction.dest,
+                                value : totalB,
+                                op : "const",
+                                type : instruction.type
+                            });
+                        } else {
+                            result.push({
+                                dest : instruction.dest,
+                                args : varMappings,
+                                op : instruction.op,
+                                type : instruction.type,
+                                functions : instruction.functions,
+                                labels :  instruction.labels
+                            });
+                        }
                     }
                 }
             }
@@ -452,7 +568,7 @@ const main = () => {
                     pass = localValueNumbering(pass);
                     pass = deadCodeElimination(pass);
         
-                    result.functions.push({"name" : fn.name, "instrs": pass});
+                    result.functions.push({"name" : fn.name, "instrs": pass, "args": fn.args});
                 }
             }
             console.log(JSON.stringify(result));
