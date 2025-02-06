@@ -35,17 +35,22 @@ type lvnExpr =
     type : any,
     functions : (Array<string> | undefined),
     labels : (Array<string> | undefined)
-  }
+  };
 
 type lvnEntry = {
     expr?: lvnExpr,
     variable : string
 };
+
 type lvntable = Array<lvnEntry>;
 type store = Map<string, number>;
 
 // Store order-irrelevant operations
 const orderIrrelevant : Set<string> = new Set<string>(["add", "mul", "eq", "ne", "and", "or"]);
+
+/*  Stores binary operators with constants who can be reduced to constants
+    NOTE – An operator cannot be both arithmetic and binary-reduceable.
+*/
 const arithReduce : Set<string> = new Set<string>(["add", "mul", "sub", "div"]);
 const boolReduce : Set<string> = new Set<string>(["and", "or", "eq", "le","ge", "lt", "gt", "ne"]);
 
@@ -132,18 +137,18 @@ const basicBlock = (instrs : Array<brilInstruction>) : Map<string, Array<brilIns
 const removeUnused = (instructions : Array<brilInstruction>) : Array<brilInstruction> => {
     // Maps each variable to whether it gets referenced in the future or not
     let unused : Set<string> = new Set<string>();
+    let used : Set<string> = new Set<string>();
 
     for (let instruction of instructions) {
         // Scan for variable assignment
         if (instruction.dest) {
-            if (!unused.has(instruction.dest)) {
-                unused.add(instruction.dest);
-            }
+            unused.add(instruction.dest);
         }
         
         // Scan for variable usage
         if (instruction.args) {
             for (let arg of instruction.args) {
+                used.add(arg);
                 if (unused.has(arg)) {
                     unused.delete(arg);
                 }
@@ -155,7 +160,7 @@ const removeUnused = (instructions : Array<brilInstruction>) : Array<brilInstruc
     let results : Array<brilInstruction> = [];
     for (let instruction of instructions) {
         if (instruction.dest) {
-            if (!unused.has(instruction.dest)) {
+            if (!unused.has(instruction.dest) || used.has(instruction.dest)) {
                 results.push(instruction);
             }
         } else {
@@ -225,12 +230,22 @@ const deadCodeElimination = (instructions : Array<brilInstruction>) : Array<bril
     return optimized;
 }
 
+// Check if a variable name is ever rewritten to within a basic block
+const isrewrittenTo = (instructions : Array<brilInstruction>, idx : number, varID: string) : boolean => {
+    for (let i = idx+1; i < instructions.length; i++) {
+        if (instructions[i].dest && instructions[i].dest == varID) {
+            return true;
+        }
+    }
+    return false;
+}
+
 /*
     Locally number values within a basic block and eliminate repeated value initializations.
     @param fn – Bril function whose dead code is to be eliminated.
     @return – Array of Bril instructions with repeated instructions factored out.
 */
-const valueBlock  = (block : Array<brilInstruction>) : Array<brilInstruction> => {
+const valueBlock  = (block : Array<brilInstruction>, block_number : number) : Array<brilInstruction> => {
     // Final parsing result
     let result : Array<brilInstruction> = [];
     
@@ -249,7 +264,8 @@ const valueBlock  = (block : Array<brilInstruction>) : Array<brilInstruction> =>
     // Count number of variable assignments made
     let declarationsCounted : number = 0;
 
-    for (let instruction of block) {
+    for (let i = 0; i < block.length; i++) {
+        let instruction : brilInstruction = block[i];
         /*
             * If the instruction is a label or jump, don't update the table.
             * Only add it to the resultant list of instructions.
@@ -272,6 +288,13 @@ const valueBlock  = (block : Array<brilInstruction>) : Array<brilInstruction> =>
 
             let parsedRepr : string = JSON.stringify(parsed);
 
+            let newvarname : string = instruction.dest;
+            if (isrewrittenTo(block, i, instruction.dest)) {
+                newvarname = `v_${block_number}_${declarationsCounted}`;
+                // Update for future lookup
+                newNaming.set(instruction.dest, newvarname);
+            }
+            
             if (valueIdx.has(parsedRepr)) {
                 // Find location within table, update pointer, and add id pointer to instruction set
                 let idxptr : number | undefined = (valueIdx.get(parsedRepr));
@@ -279,9 +302,9 @@ const valueBlock  = (block : Array<brilInstruction>) : Array<brilInstruction> =>
                     idxptr = -1;
                 }
 
-                store.set(instruction.dest, idxptr);
+                store.set(newvarname, idxptr);
                 result.push({
-                    dest : instruction.dest,
+                    dest : newvarname,
                     args : [lvnTable[idxptr].variable],
                     op : "id",
                     type : instruction.type
@@ -289,10 +312,22 @@ const valueBlock  = (block : Array<brilInstruction>) : Array<brilInstruction> =>
 
             } else { // If not present in table, add it in and push instruction
                 valueIdx.set(parsedRepr, lvnTable.length);
-                store.set(instruction.dest, lvnTable.length);
-                lvnTable.push({expr: parsed, variable : instruction.dest})
-                result.push(instruction);
+                store.set(newvarname, lvnTable.length);
+
+                lvnTable.push({
+                    expr: parsed,
+                    variable : newvarname
+                })
+
+                result.push({
+                    dest : newvarname,
+                    op : instruction.op,
+                    type : instruction.type,
+                    value : instruction.value
+                });
             }
+
+            declarationsCounted += 1;
 
         /*
             If the instruction contains arguments:
@@ -309,14 +344,24 @@ const valueBlock  = (block : Array<brilInstruction>) : Array<brilInstruction> =>
                 let argMappings : Array<string> = [];
 
                 for (let arg of instruction.args) {
-                    if (store.has(arg)) {
-                        let storeIdx : number | undefined = store.get(arg);
+                    
+                    // Check if it has some other name in the new parsing
+                    let parsedName : string = arg;
+                    if (newNaming.has(arg)) {
+                        let newname : string | undefined = newNaming.get(arg);
+                        if (newname != undefined) {
+                            parsedName = newname;
+                        }
+                    }
+
+                    if (store.has(parsedName)) {
+                        let storeIdx : number | undefined = store.get(parsedName);
                         if (storeIdx == undefined) {
                             storeIdx = -1;
                         }
                         argMappings.push(lvnTable[storeIdx].variable);
                     } else {
-                        argMappings.push(arg);
+                        argMappings.push(parsedName);
                     }
                 }
 
@@ -336,22 +381,33 @@ const valueBlock  = (block : Array<brilInstruction>) : Array<brilInstruction> =>
                     * If the command is 'id', just draw a new pointer in the table.
                     * Add an instruction that would do ID as well.                    
                 */
+                let newvarname : string = instruction.dest;
+                if (isrewrittenTo(block, i, newvarname)) {
+                    newvarname = `v_${block_number}_${declarationsCounted}`;
+                }
+
                 if (instruction.op && instruction.op == "id") {
-                    let var_dest : number | undefined = store.get(instruction.args[0]);
+                    let parsedArg : string = instruction.args[0];
+
+                    if (newNaming.has(parsedArg)) {
+                        parsedArg = newNaming.get(parsedArg) || parsedArg;
+                    }
+
+                    let var_dest : number | undefined = store.get(parsedArg);
                     if (var_dest == undefined) {
                         var_dest = -1;
                     }
 
                     let arg_dest : string;
                     if (var_dest == -1) {
-                        arg_dest = instruction.args[0];
+                        arg_dest = parsedArg;
                     } else {
-                        store.set(instruction.dest, var_dest);
+                        store.set(newvarname, var_dest);
                         arg_dest = lvnTable[var_dest].variable;
                     }
                     
                     result.push({
-                        dest : instruction.dest,
+                        dest : newvarname,
                         op : "id",
                         args : [arg_dest],
                         type : instruction.type,
@@ -363,7 +419,8 @@ const valueBlock  = (block : Array<brilInstruction>) : Array<brilInstruction> =>
                     // Index each arg based on its pointer as a variable in the table
                     let argMappings : Array<number> = [];
                     for (let arg of instruction.args) {
-                        let stored = store.get(arg);
+                        let parsedArg : string = newNaming.get(arg) || arg;
+                        let stored = store.get(parsedArg);
 
                         if (stored == undefined) {
                             argMappings.push(-1);
@@ -379,6 +436,7 @@ const valueBlock  = (block : Array<brilInstruction>) : Array<brilInstruction> =>
                     let totalB : boolean = false;
 
                     if (arithReduce.has(instruction.op)) {
+                        booleanReduceable = false;
                         let arg1 : number = argMappings[0];
                         let arg2 : number = argMappings[1];
                         if (arg1 != -1 && arg2 != -1) {
@@ -386,9 +444,10 @@ const valueBlock  = (block : Array<brilInstruction>) : Array<brilInstruction> =>
                                 &&
                                 lvnTable[arg2].expr && lvnTable[arg2].expr.name == "const"
                             ) {
+                                // Special case needed for division in case of zero denominator
                                 if (instruction.op == "div") {
                                     if (lvnTable[arg2].expr.value != 0) {
-                                        totalA = lvnTable[arg1].expr.value / lvnTable[arg2].expr.value;
+                                        totalA = Math.trunc(lvnTable[arg1].expr.value / lvnTable[arg2].expr.value);
                                     } else {
                                         arithReduceable = false;
                                     }
@@ -478,23 +537,25 @@ const valueBlock  = (block : Array<brilInstruction>) : Array<brilInstruction> =>
                         if (idxptr == undefined) {
                             idxptr = -1;
                         }
-                        store.set(instruction.dest, idxptr);
+
+                        store.set(newvarname, idxptr);
                         result.push({
-                            dest : instruction.dest,
+                            dest : newvarname,
                             args : [lvnTable[idxptr].variable],
                             op : "id",
                             type : instruction.type
                         });
         
+                    // Otherwise, create a new entry
                     } else {
-                        store.set(instruction.dest, lvnTable.length);
+                        store.set(newvarname, lvnTable.length);
                         valueIdx.set(parsedRepr, lvnTable.length);
-                        lvnTable.push({expr : parsedInsn, variable : instruction.dest});
+                        lvnTable.push({expr : parsedInsn, variable : newvarname});
                         let varMappings : Array<string> = [];
 
                         for (let i = 0; i < argMappings.length; i++) {
                             if (argMappings[i] == -1) {
-                                varMappings.push(instruction.args[i]);
+                                varMappings.push(newNaming.get(instruction.args[i]) || instruction.args[i]);
                             } else {
                                 varMappings.push(lvnTable[argMappings[i]].variable);
                             }
@@ -502,21 +563,21 @@ const valueBlock  = (block : Array<brilInstruction>) : Array<brilInstruction> =>
 
                         if (arithReduceable)  {
                             result.push({
-                                dest : instruction.dest,
+                                dest : newvarname,
                                 value : totalA,
                                 op : "const",
                                 type : instruction.type
                             });
                         } else if (booleanReduceable)  {
                             result.push({
-                                dest : instruction.dest,
+                                dest : newvarname,
                                 value : totalB,
                                 op : "const",
                                 type : instruction.type
                             });
                         } else {
                             result.push({
-                                dest : instruction.dest,
+                                dest : newvarname,
                                 args : varMappings,
                                 op : instruction.op,
                                 type : instruction.type,
@@ -541,8 +602,10 @@ const localValueNumbering = (instructions : Array<brilInstruction>) : Array<bril
     const blocked : Map<string, Array<brilInstruction>> = basicBlock(instructions);
     let result : Array<Array<brilInstruction>> = [];
 
+    let idx : number = 0;
     for (let block of blocked) {
-        result.push(valueBlock(block[1]));
+        result.push(valueBlock(block[1], idx));
+        idx += 1;
     }
 
     return flatten(result);
