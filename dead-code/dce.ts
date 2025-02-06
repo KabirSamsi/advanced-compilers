@@ -230,7 +230,12 @@ const deadCodeElimination = (instructions : Array<brilInstruction>) : Array<bril
     return optimized;
 }
 
-// Check if a variable name is ever rewritten to within a basic block
+/* Check if a variable name is ever rewritten to within a basic block.
+    @param instructions – all instructions comprising the basic block
+    @param idx – the starting index of the variable initialization. Only scan in front of it
+    @param varID – the variable ID whose re-initialization we are searching for
+    @return – Boolean reflecting whether varID is rewritten to.
+*/
 const isrewrittenTo = (instructions : Array<brilInstruction>, idx : number, varID: string) : boolean => {
     for (let i = idx+1; i < instructions.length; i++) {
         if (instructions[i].dest && instructions[i].dest == varID) {
@@ -344,16 +349,8 @@ const valueBlock  = (block : Array<brilInstruction>, block_number : number) : Ar
                 let argMappings : Array<string> = [];
 
                 for (let arg of instruction.args) {
-                    
                     // Check if it has some other name in the new parsing
-                    let parsedName : string = arg;
-                    if (newNaming.has(arg)) {
-                        let newname : string | undefined = newNaming.get(arg);
-                        if (newname != undefined) {
-                            parsedName = newname;
-                        }
-                    }
-
+                    let parsedName : string = newNaming.get(arg) || arg;
                     if (store.has(parsedName)) {
                         let storeIdx : number | undefined = store.get(parsedName);
                         if (storeIdx == undefined) {
@@ -632,9 +629,14 @@ const main = () => {
             // Iterate through each function defined in the Bril program
             for (const fn of data.functions || []) {
                 if (result.functions) {
+                    let length : number = fn.instrs.length + 1;
                     let pass : Array<brilInstruction> = deadCodeElimination(fn.instrs || []);
-                    pass = localValueNumbering(pass);
-                    pass = deadCodeElimination(pass);
+
+                    while (length > pass.length) {
+                        length = pass.length;
+                        pass = localValueNumbering(pass);
+                        pass = deadCodeElimination(pass);
+                    }
         
                     result.functions.push({"name" : fn.name, "instrs": pass, "args": fn.args});
                 }
