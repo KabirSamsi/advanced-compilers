@@ -49,6 +49,21 @@ const orderIrrelevant : Set<string> = new Set<string>(["add", "mul", "eq", "ne",
 const arithReduce : Set<string> = new Set<string>(["add", "mul", "sub", "div"]);
 const boolReduce : Set<string> = new Set<string>(["and", "or", "eq", "le","ge", "lt", "gt", "ne"]);
 
+// Maps constant-optimizable opcodes to their relative functions
+const reduceMap : Map<string, Function> = new Map<string, Function>([
+    ["add", (x : number, y : number) => x+y],
+    ["mul", (x : number, y : number) => x*y],
+    ["sub", (x : number, y : number) => x-y],
+    ["eq", (x : number, y : number) => x == y],
+    ["ne", (x : number, y : number) : boolean => x != y],
+    ["le", (x : number, y : number) : boolean => x <= y],
+    ["ge", (x : number, y : number) : boolean => x >= y],
+    ["lt", (x : number, y : number) : boolean => x < y],
+    ["gt", (x : number, y : number) : boolean => x > y],
+    ["and", (x : boolean, y : boolean) : boolean => x && y],
+    ["or", (x : boolean, y : boolean) : boolean => x || y],
+]);
+
 /*
     Flatten an Array<Array<any>> to a flat Array<any>.
     @param instrs – The set of initial, unblocked instructions.
@@ -371,16 +386,19 @@ const valueBlock  = (block : Array<brilInstruction>) : Array<brilInstruction> =>
                                 &&
                                 lvnTable[arg2].expr && lvnTable[arg2].expr.name == "const"
                             ) {
-                                if (instruction.op == "add") {
-                                    totalA = lvnTable[arg1].expr.value + lvnTable[arg2].expr.value;
-                                } else if (instruction.op == "mul") {
-                                    totalA = lvnTable[arg1].expr.value * lvnTable[arg2].expr.value;
-                                } else if (instruction.op == "sub") {
-                                    totalA = lvnTable[arg1].expr.value - lvnTable[arg2].expr.value;
-                                } else if (instruction.op == "div" && lvnTable[arg2].expr.value != 0) {
-                                    totalA = lvnTable[arg1].expr.value / lvnTable[arg2].expr.value;
+                                if (instruction.op == "div") {
+                                    if (lvnTable[arg2].expr.value != 0) {
+                                        totalA = lvnTable[arg1].expr.value / lvnTable[arg2].expr.value;
+                                    } else {
+                                        arithReduceable = false;
+                                    }
                                 } else {
-                                    arithReduceable = false;
+                                    let opFn : Function | undefined = reduceMap.get(instruction.op);
+                                    if (!opFn) {
+                                        arithReduceable = false;    
+                                    } else {
+                                        totalA = opFn(lvnTable[arg1].expr.value, lvnTable[arg2].expr.value);
+                                    }
                                 }
                             } else {
                                 arithReduceable = false;
@@ -399,24 +417,11 @@ const valueBlock  = (block : Array<brilInstruction>) : Array<brilInstruction> =>
                                 &&
                                 lvnTable[arg2].expr && lvnTable[arg2].expr.name == "const"
                             ) {
-                                if (instruction.op == "eq") {
-                                    totalB = lvnTable[arg1].expr.value == lvnTable[arg2].expr.value;
-                                } else if (instruction.op == "ne") {
-                                    totalB = lvnTable[arg1].expr.value != lvnTable[arg2].expr.value;
-                                } else if (instruction.op == "ge") {
-                                    totalB = lvnTable[arg1].expr.value >= lvnTable[arg2].expr.value;
-                                } else if (instruction.op == "le") {
-                                    totalB = lvnTable[arg1].expr.value <= lvnTable[arg2].expr.value;
-                                } else if (instruction.op == "gt") {
-                                    totalB = lvnTable[arg1].expr.value > lvnTable[arg2].expr.value;
-                                } else if (instruction.op == "lt") {
-                                    totalB = lvnTable[arg1].expr.value < lvnTable[arg2].expr.value;
-                                } else if (instruction.op == "and") {
-                                    totalB = lvnTable[arg1].expr.value && lvnTable[arg2].expr.value;
-                                } else if (instruction.op == "or") {
-                                    totalB = lvnTable[arg1].expr.value || lvnTable[arg2].expr.value;
-                                } else {
+                                let opFn : Function | undefined = reduceMap.get(instruction.op);
+                                if (!opFn) {
                                     booleanReduceable = false;
+                                } else {
+                                    totalB = opFn(lvnTable[arg1].expr.value, lvnTable[arg2].expr.value);
                                 }
                             } else {
                                 booleanReduceable = false;
