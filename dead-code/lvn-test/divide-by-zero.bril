@@ -1,7 +1,7 @@
 @main {
 .entry:
-  zero : int = const 0;
-  one : int = const 1;
+  zero : int = const 5;
+  one : int = const 20;
   baddiv : int = div one zero;
   print baddiv;
 }

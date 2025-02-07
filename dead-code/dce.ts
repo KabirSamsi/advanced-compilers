@@ -16,7 +16,8 @@ type brilInstruction = {
 type brilFunction = {
     instrs?: Array<brilInstruction>;
     name?: string;
-    args?: Array<string>
+    args?: Array<string>,
+    type?: string | undefined
 };
 
 type brilProgram = {functions?: Array<brilFunction>};
@@ -54,7 +55,7 @@ const orderIrrelevant : Set<string> = new Set<string>(["add", "mul", "eq", "ne",
 const arithReduce : Set<string> = new Set<string>(["add", "mul", "sub", "div"]);
 const boolReduce : Set<string> = new Set<string>(["and", "or", "eq", "le","ge", "lt", "gt", "ne"]);
 
-// Maps constant-optimizable opcodes to their relative functions
+// Maps constant-folding opcodes to their relative functions
 const reduceMap : Map<string, Function> = new Map<string, Function>([
     ["add", (x : number, y : number) => x+y],
     ["mul", (x : number, y : number) => x*y],
@@ -295,9 +296,11 @@ const valueBlock  = (block : Array<brilInstruction>, block_number : number) : Ar
 
             let newvarname : string = instruction.dest;
             if (isrewrittenTo(block, i, instruction.dest)) {
-                newvarname = `v_${block_number}_${declarationsCounted}`;
+                newvarname = `_v_${block_number}_${declarationsCounted}`;
                 // Update for future lookup
                 newNaming.set(instruction.dest, newvarname);
+            } else if (newNaming.has(instruction.dest)) {
+                newNaming.delete(instruction.dest);
             }
             
             if (valueIdx.has(parsedRepr)) {
@@ -380,15 +383,21 @@ const valueBlock  = (block : Array<brilInstruction>, block_number : number) : Ar
                 */
                 let newvarname : string = instruction.dest;
                 if (isrewrittenTo(block, i, newvarname)) {
-                    newvarname = `v_${block_number}_${declarationsCounted}`;
+                    newvarname = `_v_${block_number}_${declarationsCounted}`;
+                    newNaming.set(instruction.dest, newvarname);
+                } else if (newNaming.has(instruction.dest)) {
+                    for (let i = 0; i < instruction.args.length; i++) {
+                        if (instruction.args[i] == instruction.dest) {
+                            instruction.args[i] = newNaming.get(instruction.dest) || "";
+                        }
+                    }
+                    newNaming.delete(instruction.dest);
                 }
+
 
                 if (instruction.op && instruction.op == "id") {
                     let parsedArg : string = instruction.args[0];
-
-                    if (newNaming.has(parsedArg)) {
-                        parsedArg = newNaming.get(parsedArg) || parsedArg;
-                    }
+                    parsedArg = newNaming.get(parsedArg) || parsedArg;
 
                     let var_dest : number | undefined = store.get(parsedArg);
                     if (var_dest == undefined) {
@@ -573,14 +582,10 @@ const valueBlock  = (block : Array<brilInstruction>, block_number : number) : Ar
                                 type : instruction.type
                             });
                         } else {
-                            result.push({
-                                dest : newvarname,
-                                args : varMappings,
-                                op : instruction.op,
-                                type : instruction.type,
-                                functions : instruction.functions,
-                                labels :  instruction.labels
-                            });
+                            let finalResult : brilInstruction = instruction;
+                            finalResult.dest = newvarname;
+                            finalResult.args = varMappings;
+                            result.push(finalResult);
                         }
                     }
                 }
@@ -631,14 +636,10 @@ const main = () => {
                 if (result.functions) {
                     let length : number = fn.instrs.length + 1;
                     let pass : Array<brilInstruction> = deadCodeElimination(fn.instrs || []);
-
-                    while (length > pass.length) {
-                        length = pass.length;
-                        pass = localValueNumbering(pass);
-                        pass = deadCodeElimination(pass);
-                    }
+                    pass = localValueNumbering(pass);
+                    pass = deadCodeElimination(pass);
         
-                    result.functions.push({"name" : fn.name, "instrs": pass, "args": fn.args});
+                    result.functions.push({"name" : fn.name, "instrs": pass, "args": fn.args, "type" : fn.type});
                 }
             }
             console.log(JSON.stringify(result));
