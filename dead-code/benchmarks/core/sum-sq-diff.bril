@@ -58,8 +58,10 @@
 @main(n: int) {
   v0: int = id n;
   sum: int = call @sumOfSquares v0;
+  print sum;
   sum: int = id sum;
   v1: int = id n;
+  
   square: int = call @squareOfSum v1;
   square: int = id square;
   v2: int = id square;

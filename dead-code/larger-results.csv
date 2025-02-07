@@ -1,0 +1,11 @@
+benchmark,run,result
+delannoy,baseline,5748752
+delannoy,myopt,5350158
+catalan,baseline,659378
+catalan,myopt,659378
+pythagorean_triple,baseline,61518
+pythagorean_triple,myopt,61518
+ackermann,baseline,1464231
+ackermann,myopt,1464231
+primes-between,baseline,574100
+primes-between,myopt,571439
