@@ -382,7 +382,7 @@ const valueBlock  = (block : Array<brilInstruction>, block_number : number) : Ar
                 let oldvarname : string | undefined = undefined;
                 if (isrewrittenTo(block, i, newvarname)) {
                     newvarname = `_v_${block_number}_${declarationsCounted}`;
-                    oldvarname = newNaming.get(instruction.dest);
+                    oldvarname = newNaming.get(instruction.dest) || instruction.dest;
                     newNaming.set(instruction.dest, newvarname);
                 } else if (newNaming.has(instruction.dest)) {
                     for (let i = 0; i < instruction.args.length; i++) {
@@ -615,6 +615,7 @@ const localValueNumbering = (instructions : Array<brilInstruction>) : Array<bril
 
     let idx : number = 0;
     for (let block of blocked) {
+        // console.log(block[1]);
         result.push(valueBlock(block[1], idx));
         idx += 1;
     }

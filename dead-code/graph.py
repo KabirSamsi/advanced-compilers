@@ -28,7 +28,7 @@ def plot_grouped_bar_chart(csv_file):
     # Formatting the plot
     ax.set_xlabel('Benchmark')
     ax.set_ylabel('Result')
-    ax.set_title('Comparison of pre/post optimization performance by benchmark')
+    ax.set_title('Comparison of pre/post optimization performance by benchmark (LVN Examples Directory)')
     ax.set_xticks(x)
     ax.set_xticklabels(df_pivot.index, rotation=45, ha='right')
     ax.legend()
@@ -40,4 +40,4 @@ def plot_grouped_bar_chart(csv_file):
 # Example usage
 
 # Example usage
-plot_grouped_bar_chart('larger-results.csv')
+plot_grouped_bar_chart('results-lvn.csv')
