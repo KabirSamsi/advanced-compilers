@@ -1,0 +1,1 @@
+bril2json < df/$1.bril | node main.js

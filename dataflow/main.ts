@@ -22,19 +22,19 @@ type brilFunction = {
 
 type brilProgram = {functions?: Array<brilFunction>};
 
-type block = Map<string, Array<brilInstruction>>;
+type blockList = Map<string, Array<brilInstruction>>;
 
-type graph = Map<String, Array<String>>;
+type graph = Map<string, Array<string>>;
 
 /*
-    Generate a series of basic blocks from a given instructions.
+    Generate a series of basic blocks from a given instructions, and ordering of labels.
     @param instrs – The set of initial, unblocked instructions.
-    @return – A series of blocks marked with their corresponding labels.
+    @return – A series of blocks marked with their corresponding labels, along with an ordering of labels.
 */
-const basicBlock = (instrs : Array<brilInstruction>) : Map<string, Array<brilInstruction>> => {
+const basicBlocks = (instrs : Array<brilInstruction>) : [Map<string, Array<brilInstruction>>, Array<string>] => {
     // Store all labeled blocks    
     let blocks : Map<string, Array<brilInstruction>> = new Map<string, Array<brilInstruction>>();
-    let label_order : Array<String> = ["start"];
+    let label_order : Array<string> = ["start"];
 
     // Traverse each block and add it
     let curr_label : string = "start";
@@ -66,9 +66,64 @@ const basicBlock = (instrs : Array<brilInstruction>) : Map<string, Array<brilIns
         blocks.delete("");
     }
     
-    return blocks;
+    return [blocks, label_order];
 }
 
-const buildGraph = (blocks : Array<block>) : graph => {
-    return new Map<String, Array<String>>();
+/*
+    Generate an adjacency list mapping labels of basic blocks to their neighboring blocks
+    @param blocks – The set of basic blocks
+    @param labels – The set of block labels
+    @return – A graph representing the control-flow graph of the function
+*/
+const generateCFG = (blocks : blockList, labels : Array<string>) : graph => {
+    let graph : graph = new Map<string, Array<string>>();
+    for (let [label, insns] of blocks) {
+        if (insns.length > 0 && insns[insns.length-1].labels) {
+            let tail : Array<string> = insns[insns.length-1].labels || [];
+            graph.set(label, tail);
+        } else {
+            let idx : number = labels.indexOf(label);
+            if (idx != -1 && idx != labels.length-1) {
+                graph.set(label, [labels[idx+1]]);
+            } else {
+                graph.set(label, []);
+            }
+        }
+    }
+    return graph;
 }
+
+/*
+    Main function.
+    Open a file specified from the command line and run each function through DCE and LVN passes.
+*/
+const main = () => {
+    process.stdin.setEncoding("utf8");
+    let datastring : string = "";
+
+    stdin.on("data", chunk => {
+        datastring += chunk;
+    });
+    
+    stdin.on("end", () => {
+        
+        try {
+            const data = JSON.parse(datastring);
+            const result : brilProgram = {functions: []};
+
+            // Iterate through each function defined in the Bril program
+            for (const fn of data.functions || []) {
+                if (result.functions) {
+                    let [blocks, labelOrdering] : [blockList, Array<string>] = basicBlocks(fn.instrs);
+                    let graph : Map<string, Array<string>> = generateCFG(blocks, labelOrdering);
+                    console.log(graph);
+                }
+            }
+
+        } catch (error) {
+            console.error("Invalid JSON:", error);
+        }
+    });
+}
+
+main();
