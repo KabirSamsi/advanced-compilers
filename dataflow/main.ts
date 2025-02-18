@@ -23,6 +23,22 @@ type blockList = Map<string, brilInstruction[]>;
 
 type graph = Map<string, string[]>;
 
+/* Extract successors of a block (indexed by label) in a CFG. */
+const succ = (adj : graph, node : string) : string[] => {
+    return adj.get(node) || [];
+}
+
+/* Extract predecessors of a block (indexed by label) in a CFG. */
+const pred = (adj : graph, node : string) : string[] => {
+    let predecessors : string[] = [];
+    for (let neighbor of adj.keys()) {
+        if ((adj.get(neighbor) || []).includes(node)) {
+            predecessors.push(neighbor);
+        }
+    }
+    return predecessors;
+}
+
 /*
     Generate a series of basic blocks from a given instructions, and ordering of labels.
     @param instrs – The set of initial, unblocked instructions.
@@ -81,6 +97,67 @@ const basicBlocks = (instrs : Array<brilInstruction>) : [Map<string, Array<brilI
     }
 
     return [blocks, label_order];
+}
+
+// in[entry] = init
+// out[*] = init
+//
+// worklist = all blocks
+// while worklist is not empty:
+//     b = pick any block from worklist
+//     in[b] = merge(out[p] for every predecessor p of b)
+//     out[b] = transfer(b, in[b])
+//     if out[b] changed:
+//         worklist += successors of b
+
+// backwards analysis
+const lva = (graph:graph, blocks : blockList) => {
+    type Block = string
+    type data = Set<string>; // set of live variables
+
+    /* Merge function */
+    const merge = (blocks: data[]): data => {}
+
+    /* Difference of two sets (less experimentla technology) */
+    const difference = (s1 : Set<any>, s2 : Set<any>) : Set<any> => {
+        for (let elem of s2) {
+            s1.add(elem);
+            s1.delete(elem);
+        }
+        return s1;
+    }
+
+    /* Transfer function */
+    const transfer = (b: Block, out: data) : data => {
+        let ins : Set<string> = out;
+        for (let line of blocks.get(b)!.reverse()) {
+            if (line.dest != undefined) {
+                ins.delete(line.dest!);
+            }
+            let uses : Set<string> = new Set((line.args || []));
+            ins = ins.union(uses);
+        }
+        return ins;
+    }
+
+    const ins : Record<Block, data> = {}
+    const outs : Record<Block, data> = {}
+
+    const worklist : Block[] = [...graph.keys()]
+    console.log(worklist)
+    // backwards
+    while (worklist.length > 0) {
+        const b = worklist.shift()!;
+        const succs = graph.get(b) ?? []
+        outs[b] = merge(succs.map(b => ins[b]))
+        const prevIns = ins[b]
+        const a = transfer(b, outs[b])
+        console.log(a)
+        if (prevIns != ins[b]) { // no clue if this will work
+            worklist.concat(pred(graph,b))
+        }
+    }
+    return [ins, outs]
 }
 
 /*
