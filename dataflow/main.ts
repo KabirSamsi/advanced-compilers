@@ -1,6 +1,3 @@
-
-import { stdin } from "process";
-
 // Bril program types
 type brilInstruction = {
     label?: string;
@@ -32,7 +29,7 @@ type graph = Map<string, Array<string>>;
     @return – A series of blocks marked with their corresponding labels, along with an ordering of labels.
 */
 const basicBlocks = (instrs : Array<brilInstruction>) : [Map<string, Array<brilInstruction>>, Array<string>] => {
-    // Store all labeled blocks    
+    // Store all labeled blocks
     let blocks : Map<string, Array<brilInstruction>> = new Map<string, Array<brilInstruction>>();
     let label_order : Array<string> = ["start"];
 
@@ -65,7 +62,7 @@ const basicBlocks = (instrs : Array<brilInstruction>) : [Map<string, Array<brilI
     if (blocks.has("")) {
         blocks.delete("");
     }
-    
+
     return [blocks, label_order];
 }
 
@@ -97,33 +94,34 @@ const generateCFG = (blocks : blockList, labels : Array<string>) : graph => {
     Main function.
     Open a file specified from the command line and run each function through DCE and LVN passes.
 */
-const main = () => {
-    process.stdin.setEncoding("utf8");
-    let datastring : string = "";
+const main = async () => {
+    const stdin = Deno.stdin.readable
+        .pipeThrough(new TextDecoderStream())
+        .getReader();
 
-    stdin.on("data", chunk => {
-        datastring += chunk;
-    });
-    
-    stdin.on("end", () => {
-        
-        try {
-            const data = JSON.parse(datastring);
-            const result : brilProgram = {functions: []};
+    let datastring = "";
+    while (true) {
+        const { value, done } = await stdin.read();
+        if (done) break;
+        datastring += value;
+    }
 
-            // Iterate through each function defined in the Bril program
-            for (const fn of data.functions || []) {
-                if (result.functions) {
-                    let [blocks, labelOrdering] : [blockList, Array<string>] = basicBlocks(fn.instrs);
-                    let graph : Map<string, Array<string>> = generateCFG(blocks, labelOrdering);
-                    console.log(graph);
-                }
+    try {
+        const data: brilProgram = JSON.parse(datastring);
+        const result: brilProgram = { functions: [] };
+
+        for (const fn of data.functions || []) {
+            if (result.functions) {
+                let [blocks, labelOrdering] = basicBlocks(fn.instrs ?? []);
+                let graph = generateCFG(blocks, labelOrdering);
+                console.log(graph);
             }
-
-        } catch (error) {
-            console.error("Invalid JSON:", error);
         }
-    });
-}
+    } catch (error) {
+        console.error("Invalid JSON:", error);
+    }
+};
 
-main();
+if (import.meta.main) {
+    main();
+}

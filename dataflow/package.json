@@ -1,9 +1,0 @@
-{
-    "devDependencies": {
-      "@types/node": "^22.13.0"
-    },
-    "dependencies": {
-      "deno": "^2.1.9"
-    }
-  }
-  

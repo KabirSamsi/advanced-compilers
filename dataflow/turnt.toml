@@ -1,0 +1,11 @@
+[envs.defined]
+command = "bril2json < {filename} | deno main.ts defined"
+output."defined.out" = "-"
+
+[envs.live]
+command = "bril2json < {filename} | deno main.ts live"
+output."live.out" = "-"
+
+[envs.cprop]
+command = "bril2json < {filename} | deno main.ts cprop"
+output."cprop.out" = "-"
