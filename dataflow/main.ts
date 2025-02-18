@@ -1,27 +1,27 @@
 // Bril program types
 type brilInstruction = {
-    label?: string;
-    dest?: string;
-    op?: string;
-    args?: Array<string>,
-    functions?: Array<string>,
-    labels?: Array<string>,
+    label?: string
+    dest?: string
+    op?: string
+    args?: string[],
+    functions?: string[],
+    labels?: string[],
     value?: any,
     type?: any
 };
 
 type brilFunction = {
-    instrs?: Array<brilInstruction>;
-    name?: string;
-    args?: Array<string>,
-    type?: string | undefined
+    instrs?: brilInstruction[]
+    name?: string
+    args?: string[],
+    type?: string
 };
 
-type brilProgram = {functions?: Array<brilFunction>};
+type brilProgram = {functions?: brilFunction[]};
 
-type blockList = Map<string, Array<brilInstruction>>;
+type blockList = Map<string, brilInstruction[]>;
 
-type graph = Map<string, Array<string>>;
+type graph = Map<string, string[]>;
 
 /*
     Generate a series of basic blocks from a given instructions, and ordering of labels.
@@ -30,13 +30,13 @@ type graph = Map<string, Array<string>>;
 */
 const basicBlocks = (instrs : Array<brilInstruction>) : [Map<string, Array<brilInstruction>>, Array<string>] => {
     // Store all labeled blocks
-    let blocks : Map<string, Array<brilInstruction>> = new Map<string, Array<brilInstruction>>();
-    let label_order : Array<string> = ["start"];
+    const blocks : Map<string, brilInstruction[]> = new Map<string, Array<brilInstruction>>();
+    const label_order : string[] = ["start"];
 
     // Traverse each block and add it
     let curr_label : string = "start";
     let curr : Array<brilInstruction> = [];
-    for (let insn of instrs) {
+    for (const insn of instrs) {
 
         // End block if it is a label or a terminator
         if (insn.label) {
@@ -72,14 +72,14 @@ const basicBlocks = (instrs : Array<brilInstruction>) : [Map<string, Array<brilI
     @param labels – The set of block labels
     @return – A graph representing the control-flow graph of the function
 */
-const generateCFG = (blocks : blockList, labels : Array<string>) : graph => {
-    let graph : graph = new Map<string, Array<string>>();
-    for (let [label, insns] of blocks) {
+const generateCFG = (blocks : blockList, labels : string[]) : graph => {
+    const graph : graph = new Map();
+    for (const [label, insns] of blocks) {
         if (insns.length > 0 && insns[insns.length-1].labels) {
-            let tail : Array<string> = insns[insns.length-1].labels || [];
+            const tail = insns[insns.length-1].labels || [];
             graph.set(label, tail);
         } else {
-            let idx : number = labels.indexOf(label);
+            const idx = labels.indexOf(label);
             if (idx != -1 && idx != labels.length-1) {
                 graph.set(label, [labels[idx+1]]);
             } else {
@@ -112,8 +112,8 @@ const main = async () => {
 
         for (const fn of data.functions || []) {
             if (result.functions) {
-                let [blocks, labelOrdering] = basicBlocks(fn.instrs ?? []);
-                let graph = generateCFG(blocks, labelOrdering);
+                const [blocks, labelOrdering] = basicBlocks(fn.instrs ?? []);
+                const graph = generateCFG(blocks, labelOrdering);
                 console.log(graph);
             }
         }
