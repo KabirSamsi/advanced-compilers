@@ -42,10 +42,16 @@ const basicBlocks = (instrs : Array<brilInstruction>) : [Map<string, Array<brilI
         // End block if it is a label or a terminator
         if (insn.label) {
             if (curr.length > 0) {
-                blocks.set(curr_label, curr);
+                if (curr_label == "") {
+                    blocks.set("lbl" + label_count, curr);   
+                    label_count += 1;
+                    label_order.push("lbl" + label_count);
+                } else {
+                    blocks.set(curr_label, curr);
+                    label_order.push(curr_label);
+                }
             }
             curr_label = insn.label; // Update new label
-            curr = [insn];
         } else if (insn.op) {
             curr.push(insn);
             if (insn.op == "jmp" || insn.op == "br" || insn.op == "ret") {
