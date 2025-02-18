@@ -90,11 +90,29 @@ const generateCFG = (blocks : blockList, labels : string[]) : graph => {
     return graph;
 }
 
-/*
-    Main function.
-    Open a file specified from the command line and run each function through DCE and LVN passes.
-*/
-const main = async () => {
+const runBril2Json = async (datastring: string): Promise<string> => {
+    const process = new Deno.Command("bril2json", {
+        stdin: "piped",
+        stdout: "piped",
+        stderr: "piped",
+    });
+
+    const child = process.spawn();
+    const writer = child.stdin.getWriter();
+    await writer.write(new TextEncoder().encode(datastring));
+    await writer.close();
+
+    const { stdout, stderr } = await child.output();
+
+    if (stderr.length > 0) {
+        console.error("Error running bril2json:", new TextDecoder().decode(stderr));
+        Deno.exit(1);
+    }
+
+    return new TextDecoder().decode(stdout);
+};
+
+const readStdin = async (): Promise<string> => {
     const stdin = Deno.stdin.readable
         .pipeThrough(new TextDecoderStream())
         .getReader();
@@ -104,6 +122,19 @@ const main = async () => {
         const { value, done } = await stdin.read();
         if (done) break;
         datastring += value;
+    }
+    return datastring.trim();
+};
+
+const main = async () => {
+    let datastring = await readStdin();
+
+    // Try to parse as JSON first
+    try {
+        JSON.parse(datastring);
+    } catch {
+        // If parsing fails, assume it's Bril source and convert
+        datastring = await runBril2Json(datastring);
     }
 
     try {
@@ -124,4 +155,4 @@ const main = async () => {
 
 if (import.meta.main) {
     main();
-}
+};
