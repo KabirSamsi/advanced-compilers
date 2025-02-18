@@ -31,16 +31,16 @@ type graph = Map<string, string[]>;
 const basicBlocks = (instrs : Array<brilInstruction>) : [Map<string, Array<brilInstruction>>, Array<string>] => {
     // Store all labeled blocks
     const blocks : Map<string, brilInstruction[]> = new Map<string, Array<brilInstruction>>();
-    const label_order : string[] = ["start"];
+    const label_order : string[] = [];
+    let label_count : number = 0;
 
     // Traverse each block and add it
-    let curr_label : string = "start";
+    let curr_label : string = "";
     let curr : Array<brilInstruction> = [];
     for (const insn of instrs) {
 
         // End block if it is a label or a terminator
         if (insn.label) {
-            label_order.push(insn.label);
             if (curr.length > 0) {
                 blocks.set(curr_label, curr);
             }
@@ -48,8 +48,15 @@ const basicBlocks = (instrs : Array<brilInstruction>) : [Map<string, Array<brilI
             curr = [insn];
         } else if (insn.op) {
             curr.push(insn);
-            if (insn.op == "jmp" || insn.op == "br") {
-                blocks.set(curr_label, curr);
+            if (insn.op == "jmp" || insn.op == "br" || insn.op == "ret") {
+                if (curr_label == "") {
+                    blocks.set("lbl" + label_count, curr);   
+                    label_count += 1;
+                    label_order.push("lbl" + label_count);
+                } else {
+                    blocks.set(curr_label, curr);
+                    label_order.push(curr_label);
+                }
                 curr = [];
                 curr_label = ""; // Until we have a new starting label, treat as dead code
             }
@@ -57,10 +64,14 @@ const basicBlocks = (instrs : Array<brilInstruction>) : [Map<string, Array<brilI
             curr.push(insn);
         }
     }
-    blocks.set(curr_label, curr);
 
-    if (blocks.has("")) {
-        blocks.delete("");
+    if (curr_label == "") {
+        blocks.set("lbl" + label_count, curr);   
+        label_count += 1;
+        label_order.push("lbl" + label_count);
+    } else {
+        blocks.set(curr_label, curr);
+        label_order.push(curr_label);
     }
 
     return [blocks, label_order];
@@ -145,6 +156,7 @@ const main = async () => {
             if (result.functions) {
                 const [blocks, labelOrdering] = basicBlocks(fn.instrs ?? []);
                 const graph = generateCFG(blocks, labelOrdering);
+                console.log(blocks);
                 console.log(graph);
             }
         }
