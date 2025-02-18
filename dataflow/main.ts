@@ -148,7 +148,6 @@ const main = async () => {
         datastring = await runBril2Json(datastring);
     }
 
-    try {
         const data: brilProgram = JSON.parse(datastring);
         const result: brilProgram = { functions: [] };
 
@@ -158,11 +157,15 @@ const main = async () => {
                 const graph = generateCFG(blocks, labelOrdering);
                 console.log(blocks);
                 console.log(graph);
+                const [ins,outs] = lva(graph,blocks);
+                for(const block of blocks) {
+                    const [name, _] = block
+                    console.log(name+":")
+                    console.log(ins)
+                    console.log(outs)
+                }
             }
         }
-    } catch (error) {
-        console.error("Invalid JSON:", error);
-    }
 };
 
 if (import.meta.main) {

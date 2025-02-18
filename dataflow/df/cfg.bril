@@ -1,5 +1,7 @@
 @main {
   a: int = const 0;
   ret a;
-  b: int = const 1;
+  b: int = id a;
+  jmp .bob;
+  .bob:
 }
