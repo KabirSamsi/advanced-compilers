@@ -169,7 +169,7 @@ const pred = (adj : graph, node : string) : string[] => {
 }
 
 /* Implementation of the worklist algorithm. */
-function worklist_forwards<Data>(graph : graph, transfer, merge) : Record<Block, Data>[] {
+function worklist_forwards<Data>(graph : graph, transfer, merge: (data: Data[]) => Data, init : () => Data) : Record<Block, Data>[] {
     /* Pseudocode
         in[entry] = init
         out[*] = init
@@ -190,7 +190,7 @@ function worklist_forwards<Data>(graph : graph, transfer, merge) : Record<Block,
     while (worklist.length > 0) {
         const b = worklist.shift()!;
         const preds = pred(graph, b);
-        ins[b] = merge(preds.map(p => outs[p] || new Set()))
+        ins[b] = merge(preds.map(p => outs[p] || init()))
         const prevOuts = outs[b]
         outs[b] = transfer(b, ins[b])
         if (prevOuts != outs[b]) {
@@ -202,7 +202,7 @@ function worklist_forwards<Data>(graph : graph, transfer, merge) : Record<Block,
 
 
 /* Implementation of the worklist algorithm, going in reverse order. */
-function worklist_backwards<Data>(graph, transfer, merge) : Record<Block, Data>[] {
+function worklist_backwards<Data>(graph:graph, transfer, merge: (data: Data[]) => Data, init : () => Data) : Record<Block, Data>[] {
     /* Pseudocode
         out[entry] = init
         in[*] = init
@@ -223,7 +223,7 @@ function worklist_backwards<Data>(graph, transfer, merge) : Record<Block, Data>[
     while (worklist.length > 0) {
         const b = worklist.shift()!;
         const succs = succ(graph, b);
-        outs[b] = merge(succs.map(b => ins[b] || new Set()))
+        outs[b] = merge(succs.map(b => ins[b] || init()))
         const prevIns = ins[b]
         ins[b] = transfer(b, outs[b])
         if (prevIns != ins[b]) {
@@ -259,12 +259,12 @@ const lva = (graph : graph, blocks : blockList) => {
         return ins;
     }
 
-    return worklist_backwards<data>(graph, transfer, merge);
+    return worklist_backwards<data>(graph, transfer, merge, () => new Set());
 }
 
 /* Dataflow – Reaching Definitions Analysis */
 const reaching = (graph : graph, blocks : blockList) => {
-    type data = Set<brilInstruction>; // set of live variables
+    type data = Set<brilInstruction>;
 
     /* Merge function */
     const merge = (blocks: data[]): data => {
@@ -293,12 +293,12 @@ const reaching = (graph : graph, blocks : blockList) => {
         return ins;
     }
 
-    return worklist_forwards<data>(graph, transfer, merge);
+    return worklist_forwards<data>(graph, transfer, merge, () => new Set());
 }
 
 /* Dataflow – Constant Propagation (numbers/booleans) analysis */
 const constantProp = (graph : graph, blocks : blockList) => {
-    type data = Map<string, number | boolean>; // set of live variables
+    type data = Map<string, number | boolean>;
 
     /* Merge function (union with same key/values) */
     const merge = (blocks: data[]): data => {
@@ -334,7 +334,7 @@ const constantProp = (graph : graph, blocks : blockList) => {
         }
         return outs;
     }
-    return worklist_forwards<data>(graph, transfer, merge);
+    return worklist_forwards<data>(graph, transfer, merge, () => new Map());
 }
 
 /* Convert Bril text programs into JSON representation using bril2json */
