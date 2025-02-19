@@ -6,10 +6,10 @@
   br cond .left .right;
 .left:
   b: int = const 1;
-  c: int = const 5;
+  c: int = const 10;
   jmp .end;
 .right:
-  a: int = const 2;
+  a: int = const 47;
   c: int = const 10;
   jmp .end;
 .end:

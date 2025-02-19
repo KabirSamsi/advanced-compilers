@@ -55,18 +55,18 @@ const union = (s1 : Set<any>, s2 : Set<any>) : Set<any> => {
     return s1;
 }
 
-/* Intersection of two maps, only if their values are equivalent */
-const intersection = (s1 : Map<any, any>, s2 : Map<any, any>) : Map<any, any> => {
-    let result : Map<any, any> = new Map<any, any>();
-
-    for (let key of s1) {
-        if (s2.has(key)) {
-            if (s2.get(key) == s1.get(key)) {
-                result.set(key, s1.get(key));
+/* Difference of two sets */
+const unionMap = (s1 : Map<any, any>, s2 : Map<any, any>) : Map<any, any> => {
+    s2.forEach((v, k) => {
+        if (s1.has(k)) {
+            if (s1.get(k) != v) {
+                s1.delete(k);
             }
+        } else {
+            s1.set(k, v);
         }
-    }
-    return result;
+    })
+    return s1;
 }
 
 /*
@@ -179,8 +179,8 @@ function worklist_forwards<Data>(graph : graph, transfer, merge) : Record<Block,
 
     while (worklist.length > 0) {
         const b = worklist.shift()!;
-        const succs = graph.get(b) ?? []
-        ins[b] = merge(succs.map(b => outs[b] || new Set()))
+        const preds = pred(graph, b);
+        ins[b] = merge(preds.map(p => outs[p] || new Set()))
         const prevOuts = outs[b]
         outs[b] = transfer(b, ins[b])
         if (prevOuts != outs[b]) { // no clue if this will work
@@ -212,12 +212,12 @@ function worklist_backwards<Data>(graph, transfer, merge) : Record<Block, Data>[
 
     while (worklist.length > 0) {
         const b = worklist.shift()!;
-        const succs = graph.get(b) ?? []
+        const succs = succ(graph, b);
         outs[b] = merge(succs.map(b => ins[b] || new Set()))
         const prevIns = ins[b]
         ins[b] = transfer(b, outs[b])
         if (prevIns != ins[b]) { // no clue if this will work
-            worklist.concat(pred (graph, b))
+            worklist.concat(pred(graph, b))
         }
     }
     return [ins, outs]
@@ -290,11 +290,14 @@ const reaching = (graph : graph, blocks : blockList) => {
 const constantProp = (graph : graph, blocks : blockList) => {
     type data = Map<string, number | boolean>; // set of live variables
 
-    /* Merge function (set intersection) */
+    /* Merge function (union with same key/values) */
     const merge = (blocks: data[]): data => {
         let result : data = new Map<string, number | boolean>();
-        for (let block of blocks) {
-            result = intersection(result, block);
+        if (blocks.length > 0) {
+            result = unionMap(result, blocks[0]);
+            for (let block of blocks) {
+                result = unionMap(result, block);
+            }
         }
         return result;
     }
@@ -304,7 +307,7 @@ const constantProp = (graph : graph, blocks : blockList) => {
         let outs : data = ins;
         for (let line of blocks.get(b)!) {
             // If a definition is formed and uses only constants, add it
-            if (line.dest != undefined && line.op) {
+            if (line.dest && line.op) {
                 if (reduceMap.has(line.op) && line.args) {
                     if (line.args!.length == 2 &&
                         outs.has(line.args[0]) &&
@@ -382,14 +385,19 @@ const main = async () => {
             if (result.functions) {
                 const [blocks, labelOrdering] = basicBlocks(fn.instrs ?? []);
                 const graph = generateCFG(blocks, labelOrdering);
-                console.log(blocks);
-                console.log(graph);
-                const [ins,outs] = lva(graph,blocks);
-                for(const block of blocks) {
-                    const [name, _] = block
-                    console.log(name+":")
-                    console.log(ins[name])
-                    console.log(outs[name])
+                const lva_res = lva(graph, blocks);
+                const reaching_res = reaching(graph, blocks);
+                const constant_res = constantProp(graph, blocks);
+
+                for (let analysis of [lva_res, reaching_res, constant_res]) {
+                    console.log("\n");
+                    let [ins,outs] = analysis;
+                    for(const block of blocks) {
+                        const [name, _] = block;
+                        console.log(name+":");
+                        console.log(ins[name]);
+                        console.log(outs[name]);
+                    }
                 }
             }
         }
