@@ -293,11 +293,8 @@ const constantProp = (graph : graph, blocks : blockList) => {
     /* Merge function (union with same key/values) */
     const merge = (blocks: data[]): data => {
         let result : data = new Map<string, number | boolean>();
-        if (blocks.length > 0) {
-            result = unionMap(result, blocks[0]);
-            for (let block of blocks) {
-                result = unionMap(result, block);
-            }
+        for (let block of blocks) {
+            result = unionMap(result, block);
         }
         return result;
     }
