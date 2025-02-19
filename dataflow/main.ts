@@ -115,16 +115,28 @@ const lva = (graph:graph, blocks : blockList) => {
     type Block = string
     type data = Set<string>; // set of live variables
 
-    /* Merge function */
-    const merge = (blocks: data[]): data => {}
-
     /* Difference of two sets (less experimentla technology) */
     const difference = (s1 : Set<any>, s2 : Set<any>) : Set<any> => {
-        for (let elem of s2) {
+        s2.forEach(elem => {
             s1.add(elem);
             s1.delete(elem);
-        }
+        })
         return s1;
+    }
+
+    /* Difference of two sets (less experimentla technology) */
+    const union = (s1 : Set<any>, s2 : Set<any>) : Set<any> => {
+        s2.forEach(elem => s1.add(elem));
+        return s1;
+    }
+
+    /* Merge function */
+    const merge = (blocks: data[]): data => {
+        let result : data = new Set<string>();
+        for (let block of blocks) {
+            result = union(result, block);
+        }
+        return result;
     }
 
     /* Transfer function */
@@ -135,24 +147,23 @@ const lva = (graph:graph, blocks : blockList) => {
                 ins.delete(line.dest!);
             }
             let uses : Set<string> = new Set((line.args || []));
-            ins = ins.union(uses);
+            ins = union(ins, uses);
         }
         return ins;
     }
 
-    const ins : Record<Block, data> = {}
     const outs : Record<Block, data> = {}
+    const ins : Record<Block, data> = {}
 
     const worklist : Block[] = [...graph.keys()]
-    console.log(worklist)
+
     // backwards
     while (worklist.length > 0) {
         const b = worklist.shift()!;
         const succs = graph.get(b) ?? []
-        outs[b] = merge(succs.map(b => ins[b]))
+        outs[b] = merge(succs.map(b => ins[b] || new Set()))
         const prevIns = ins[b]
-        const a = transfer(b, outs[b])
-        console.log(a)
+        ins[b] = transfer(b, outs[b])
         if (prevIns != ins[b]) { // no clue if this will work
             worklist.concat(pred(graph,b))
         }
@@ -244,8 +255,8 @@ const main = async () => {
                 for(const block of blocks) {
                     const [name, _] = block
                     console.log(name+":")
-                    console.log(ins)
-                    console.log(outs)
+                    console.log(ins[name])
+                    console.log(outs[name])
                 }
             }
         }
