@@ -184,8 +184,9 @@ function worklist_forwards<Data>(graph: graph, transfer: (a: Block, b: Data) => 
         ins[b] = merge(preds.map(p => outs[p] || init()))
         const prevOuts = outs[b]
         outs[b] = transfer(b, ins[b])
-        if (prevOuts != outs[b]) {
-            worklist.concat(succ(graph, b))
+        if (JSON.stringify(prevOuts) != JSON.stringify(ins[b])) {
+            // TODO
+            worklist.push(...succ(graph, b))
         }
     }
     return [ins, outs]
@@ -217,8 +218,9 @@ function worklist_backwards<Data>(graph: graph, transfer: (a: Block, b: Data) =>
         outs[b] = merge(succs.map(b => ins[b] || init()))
         const prevIns = ins[b]
         ins[b] = transfer(b, outs[b])
-        if (prevIns != ins[b]) {
-            worklist.concat(pred(graph, b))
+        if (JSON.stringify(prevIns) != JSON.stringify(ins[b])) {
+            // TODO
+            worklist.push(...pred(graph, b))
         }
     }
     return [ins, outs]
