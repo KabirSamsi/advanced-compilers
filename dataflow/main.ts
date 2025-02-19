@@ -39,15 +39,6 @@ const reduceMap : Map<string, Function> = new Map<string, Function>([
     ["or", (x : boolean, y : boolean) : boolean => x || y],
 ]);
 
-/* Difference of two sets (less experimental technology) */
-const difference = (s1 : Set<any>, s2 : Set<any>) : Set<any> => {
-    s2.forEach(elem => {
-        s1.add(elem);
-        s1.delete(elem);
-    })
-    return s1;
-}
-
 /* Union of two sets */
 const union = (s1 : Set<any>, s2 : Set<any>) : Set<any> => {
     s2.forEach(elem => s1.add(elem));
@@ -158,9 +149,9 @@ const succ = (adj : graph, node : string) : string[] => {
 }
 
 /* Extract predecessors of a block (indexed by label) in a CFG. */
-const pred = (adj : graph, node : string) : string[] => {
-    let predecessors : string[] = [];
-    for (let neighbor of adj.keys()) {
+const pred = (adj: graph, node: string): string[] => {
+    const predecessors: string[] = [];
+    for (const neighbor of adj.keys()) {
         if ((adj.get(neighbor) || []).includes(node)) {
             predecessors.push(neighbor);
         }
@@ -169,7 +160,7 @@ const pred = (adj : graph, node : string) : string[] => {
 }
 
 /* Implementation of the worklist algorithm. */
-function worklist_forwards<Data>(graph : graph, transfer, merge: (data: Data[]) => Data, init : () => Data) : Record<Block, Data>[] {
+function worklist_forwards<Data>(graph: graph, transfer: (a: Block, b: Data) => Data, merge: (data: Data[]) => Data, init: () => Data): Record<Block, Data>[] {
     /* Pseudocode
         in[entry] = init
         out[*] = init
@@ -182,10 +173,10 @@ function worklist_forwards<Data>(graph : graph, transfer, merge: (data: Data[]) 
             if in[b] changed:
                 worklist += predecessors of b
     */
-    const ins : Record<Block, Data> = {}
-    const outs : Record<Block, Data> = {}
+    const ins: Record<Block, Data> = {}
+    const outs: Record<Block, Data> = {}
 
-    const worklist : Block[] = [...graph.keys()]
+    const worklist: Block[] = [...graph.keys()]
 
     while (worklist.length > 0) {
         const b = worklist.shift()!;
@@ -202,7 +193,7 @@ function worklist_forwards<Data>(graph : graph, transfer, merge: (data: Data[]) 
 
 
 /* Implementation of the worklist algorithm, going in reverse order. */
-function worklist_backwards<Data>(graph:graph, transfer, merge: (data: Data[]) => Data, init : () => Data) : Record<Block, Data>[] {
+function worklist_backwards<Data>(graph: graph, transfer: (a: Block, b: Data) => Data, merge: (data: Data[]) => Data, init: () => Data): Record<Block, Data>[] {
     /* Pseudocode
         out[entry] = init
         in[*] = init
@@ -215,10 +206,10 @@ function worklist_backwards<Data>(graph:graph, transfer, merge: (data: Data[]) =
             if out[b] changed:
                 worklist += successors of b
     */
-    const outs : Record<Block, Data> = {}
-    const ins : Record<Block, Data> = {}
+    const outs: Record<Block, Data> = {}
+    const ins: Record<Block, Data> = {}
 
-    const worklist : Block[] = [...graph.keys()]
+    const worklist: Block[] = [...graph.keys()]
 
     while (worklist.length > 0) {
         const b = worklist.shift()!;
@@ -234,26 +225,26 @@ function worklist_backwards<Data>(graph:graph, transfer, merge: (data: Data[]) =
 }
 
 /* Dataflow – Live Variable Analysis */
-const lva = (graph : graph, blocks : blockList) => {
+const lva = (graph: graph, blocks: blockList) => {
     type data = Set<string>; // set of live variables
 
     /* Merge function */
     const merge = (blocks: data[]): data => {
-        let result : data = new Set<string>();
-        for (let block of blocks) {
+        let result: data = new Set<string>();
+        for (const block of blocks) {
             result = union(result, block);
         }
         return result;
     }
 
     /* Transfer function */
-    const transfer = (b: Block, outs: data) : data => {
-        let ins : data = outs;
-        for (let line of blocks.get(b)!.reverse()) {
+    const transfer = (b: Block, outs: data): data => {
+        let ins: data = outs;
+        for (const line of blocks.get(b)!.reverse()) {
             if (line.dest != undefined) {
                 ins.delete(line.dest!);
             }
-            let uses : data = new Set((line.args || []));
+            const uses: data = new Set((line.args || []));
             ins = union(ins, uses);
         }
         return ins;
@@ -263,25 +254,25 @@ const lva = (graph : graph, blocks : blockList) => {
 }
 
 /* Dataflow – Reaching Definitions Analysis */
-const reaching = (graph : graph, blocks : blockList) => {
+const reaching = (graph: graph, blocks: blockList) => {
     type data = Set<brilInstruction>;
 
     /* Merge function */
     const merge = (blocks: data[]): data => {
-        let result : data = new Set<brilInstruction>();
-        for (let block of blocks) {
+        let result: data = new Set<brilInstruction>();
+        for (const block of blocks) {
             result = union(result, block);
         }
         return result;
     }
 
     /* Transfer function */
-    const transfer = (b: Block, ins: data) : data => {
-        let outs : data = ins;
-        for (let line of blocks.get(b)!) {
+    const transfer = (b: Block, ins: data): data => {
+        const outs: data = ins;
+        for (const line of blocks.get(b)!) {
             // If a definition is formed
             if (line.dest != undefined) {
-                for (let elem of outs) {
+                for (const elem of outs) {
                     if (elem.dest! == line.dest) {
                         outs.delete(elem);
                         break;
@@ -297,36 +288,36 @@ const reaching = (graph : graph, blocks : blockList) => {
 }
 
 /* Dataflow – Constant Propagation (numbers/booleans) analysis */
-const constantProp = (graph : graph, blocks : blockList) => {
+const constantProp = (graph: graph, blocks: blockList) => {
     type data = Map<string, number | boolean>;
 
     /* Merge function (union with same key/values) */
     const merge = (blocks: data[]): data => {
-        let result : data = new Map<string, number | boolean>();
-        for (let block of blocks) {
+        let result: data = new Map<string, number | boolean>();
+        for (const block of blocks) {
             result = unionMap(result, block);
         }
         return result;
     }
 
     /* Transfer function */
-    const transfer = (b: Block, ins: data) : data => {
-        let outs : data = ins;
-        for (let line of blocks.get(b)!) {
+    const transfer = (b: Block, ins: data): data => {
+        const outs: data = ins;
+        for (const line of blocks.get(b)!) {
             // If a definition is formed and uses only constants, add it
             if (line.dest && line.op) {
                 if (reduceMap.has(line.op) && line.args) {
                     if (line.args!.length == 2 &&
                         outs.has(line.args[0]) &&
                         outs.has(line.args[1])) {
-                            outs.set(line.dest,
-                                reduceMap.get(line.op)!(
-                                    outs.get(line.args[0]),
-                                    outs.get(line.args[1])
-                                )
-                            );
+                        outs.set(line.dest,
+                            reduceMap.get(line.op)!(
+                                outs.get(line.args[0]),
+                                outs.get(line.args[1])
+                            )
+                        );
                     }
-                // If the definition itself is a constant, add it as it is
+                    // If the definition itself is a constant, add it as it is
                 } else if (line.op == "const") {
                     outs.set(line.dest, line.value!);
                 }
@@ -350,7 +341,7 @@ const runBril2Json = async (datastring: string): Promise<string> => {
     await writer.write(new TextEncoder().encode(datastring));
     await writer.close();
 
-    const { stdout, stderr } = await child.output();
+    const {stdout, stderr} = await child.output();
 
     if (stderr.length > 0) {
         console.error("Error running bril2json:", new TextDecoder().decode(stderr));
@@ -368,13 +359,14 @@ const readStdin = async (): Promise<string> => {
 
     let datastring = "";
     while (true) {
-        const { value, done } = await stdin.read();
+        const {value, done} = await stdin.read();
         if (done) break;
         datastring += value;
     }
     return datastring.trim();
 };
 
+// deno-lint-ignore no-explicit-any
 const format = (val: any): string => {
     if (val instanceof Set) {
         return val.size > 0 ? Array.from(val).join(", ") : "∅";
@@ -407,7 +399,7 @@ const main = async () => {
     }
 
     const data: brilProgram = JSON.parse(datastring);
-    const result: brilProgram = { functions: [] };
+    const result: brilProgram = {functions: []};
     const analysisType = args[0]
 
     for (const fn of data.functions || []) {
