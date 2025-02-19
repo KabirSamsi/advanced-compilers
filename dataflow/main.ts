@@ -1,4 +1,4 @@
-// Bril program types
+// Bril instruction type
 type brilInstruction = {
     label?: string
     dest?: string
@@ -10,6 +10,7 @@ type brilInstruction = {
     type?: any
 };
 
+// Bril function type
 type brilFunction = {
     instrs?: brilInstruction[]
     name?: string
@@ -17,15 +18,13 @@ type brilFunction = {
     type?: string
 };
 
+// Other auxiliary types
 type brilProgram = {functions?: brilFunction[]};
-
 type blockList = Map<string, brilInstruction[]>;
-
 type graph = Map<string, string[]>;
-
 type Block = string;
 
-// Maps constant-folding opcodes to their relative functions
+/* Maps constant-folding opcodes to their relative functions */
 const reduceMap : Map<string, Function> = new Map<string, Function>([
     ["add", (x : number, y : number) => x+y],
     ["mul", (x : number, y : number) => x*y],
@@ -223,7 +222,7 @@ function worklist_backwards<Data>(graph, transfer, merge) : Record<Block, Data>[
     return [ins, outs]
 }
 
-// Live Variable Analysis
+/* Dataflow – Live Variable Analysis */
 const lva = (graph : graph, blocks : blockList) => {
     type data = Set<string>; // set of live variables
 
@@ -252,7 +251,7 @@ const lva = (graph : graph, blocks : blockList) => {
     return worklist_backwards<data>(graph, transfer, merge);
 }
 
-// Reaching Definitions Analysis
+/* Dataflow – Reaching Definitions Analysis */
 const reaching = (graph : graph, blocks : blockList) => {
     type data = Set<brilInstruction>; // set of live variables
 
@@ -286,7 +285,7 @@ const reaching = (graph : graph, blocks : blockList) => {
     return worklist_forwards<data>(graph, transfer, merge);
 }
 
-/* Constant propagation for numbers and booleans */
+/* Dataflow – Constant Propagation (numbers/booleans) analysis */
 const constantProp = (graph : graph, blocks : blockList) => {
     type data = Map<string, number | boolean>; // set of live variables
 
@@ -327,7 +326,7 @@ const constantProp = (graph : graph, blocks : blockList) => {
     return worklist_forwards<data>(graph, transfer, merge);
 }
 
-
+/* Execute dataflow analysis on bril programs */
 const runBril2Json = async (datastring: string): Promise<string> => {
     const process = new Deno.Command("bril2json", {
         stdin: "piped",
@@ -350,6 +349,7 @@ const runBril2Json = async (datastring: string): Promise<string> => {
     return new TextDecoder().decode(stdout);
 };
 
+/* Read from cmd line */
 const readStdin = async (): Promise<string> => {
     const stdin = Deno.stdin.readable
         .pipeThrough(new TextDecoderStream())
@@ -364,6 +364,7 @@ const readStdin = async (): Promise<string> => {
     return datastring.trim();
 };
 
+/* Main function */
 const main = async () => {
     let datastring = await readStdin();
 
