@@ -375,6 +375,23 @@ const readStdin = async (): Promise<string> => {
     return datastring.trim();
 };
 
+const format = (val: any): string => {
+    if (val instanceof Set) {
+        return val.size > 0 ? Array.from(val).join(", ") : "∅";
+    } else if (val instanceof Map) {
+        return val.size > 0
+            ? Array.from(val.entries()).map(([k, v]) => `${k}: ${v}`).join(", ")
+            : "∅";
+    } else if (typeof val === "object" && val !== null) {
+        return Object.keys(val).length > 0
+            ? Object.entries(val).map(([k, v]) => `${k}: ${v}`).join(", ")
+            : "∅";
+    } else {
+        return val;
+    }
+};
+
+
 /* Main function */
 const main = async () => {
     const args = Deno.args; // Get command-line arguments
@@ -418,8 +435,8 @@ const main = async () => {
             for (const block of blocks) {
                 const [name, _] = block;
                 console.log(`${name}:`);
-                console.log("  in:", ins[name]);
-                console.log("  out:", outs[name]);
+                console.log("  in: ", format(ins[name]));
+                console.log("  out:", format(outs[name]));
             }
         }
     }
