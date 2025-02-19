@@ -23,23 +23,21 @@ type blockList = Map<string, brilInstruction[]>;
 
 type graph = Map<string, string[]>;
 
-type Block = string
-type data = Set<string>; // set of live variables
+type Block = string;
 
-/* Extract successors of a block (indexed by label) in a CFG. */
-const succ = (adj : graph, node : string) : string[] => {
-    return adj.get(node) || [];
+/* Difference of two sets (less experimental technology) */
+const difference = (s1 : Set<any>, s2 : Set<any>) : Set<any> => {
+    s2.forEach(elem => {
+        s1.add(elem);
+        s1.delete(elem);
+    })
+    return s1;
 }
 
-/* Extract predecessors of a block (indexed by label) in a CFG. */
-const pred = (adj : graph, node : string) : string[] => {
-    let predecessors : string[] = [];
-    for (let neighbor of adj.keys()) {
-        if ((adj.get(neighbor) || []).includes(node)) {
-            predecessors.push(neighbor);
-        }
-    }
-    return predecessors;
+/* Difference of two sets (less experimentla technology) */
+const union = (s1 : Set<any>, s2 : Set<any>) : Set<any> => {
+    s2.forEach(elem => s1.add(elem));
+    return s1;
 }
 
 /*
@@ -102,7 +100,49 @@ const basicBlocks = (instrs : Array<brilInstruction>) : [Map<string, Array<brilI
     return [blocks, label_order];
 }
 
-/* Pseudocode
+/*
+    Generate an adjacency list mapping labels of basic blocks to their neighboring blocks
+    @param blocks – The set of basic blocks
+    @param labels – The set of block labels
+    @return – A graph representing the control-flow graph of the function
+*/
+const generateCFG = (blocks : blockList, labels : string[]) : graph => {
+    const graph : graph = new Map();
+    for (const [label, insns] of blocks) {
+        if (insns.length > 0 && insns[insns.length-1].labels) {
+            const tail = insns[insns.length-1].labels || [];
+            graph.set(label, tail);
+        } else {
+            const idx = labels.indexOf(label);
+            if (idx != -1 && idx != labels.length-1) {
+                graph.set(label, [labels[idx+1]]);
+            } else {
+                graph.set(label, []);
+            }
+        }
+    }
+    return graph;
+}
+
+/* Extract successors of a block (indexed by label) in a CFG. */
+const succ = (adj : graph, node : string) : string[] => {
+    return adj.get(node) || [];
+}
+
+/* Extract predecessors of a block (indexed by label) in a CFG. */
+const pred = (adj : graph, node : string) : string[] => {
+    let predecessors : string[] = [];
+    for (let neighbor of adj.keys()) {
+        if ((adj.get(neighbor) || []).includes(node)) {
+            predecessors.push(neighbor);
+        }
+    }
+    return predecessors;
+}
+
+/* Implementation of the worklist algorithm. */
+function worklist_forwards<Data>(graph : graph, transfer, merge) : Record<Block, Data>[] {
+    /* Pseudocode
     in[entry] = init
     out[*] = init
 
@@ -114,11 +154,8 @@ const basicBlocks = (instrs : Array<brilInstruction>) : [Map<string, Array<brilI
         if out[b] changed:
             worklist += successors of b
 */
-
-const worklist = (graph, transfer, merge) => {
-
-    const outs : Record<Block, data> = {}
-    const ins : Record<Block, data> = {}
+    const ins : Record<Block, Data> = {}    
+    const outs : Record<Block, Data> = {}
 
     const worklist : Block[] = [...graph.keys()]
 
@@ -130,31 +167,50 @@ const worklist = (graph, transfer, merge) => {
         const prevIns = ins[b]
         ins[b] = transfer(b, outs[b])
         if (prevIns != ins[b]) { // no clue if this will work
-            worklist.concat(pred(graph,b))
+            worklist.concat(pred(graph, b))
         }
     }
     return [ins, outs]
 }
 
-// backwards analysis
+
+
+/* Implementation of the worklist algorithm, going in reverse order. */
+function worklist_backwards<Data>(graph, transfer, merge) : Record<Block, Data>[] {
+    /* Pseudocode
+    in[entry] = init
+    out[*] = init
+
+    worklist = all blocks
+    while worklist is not empty:
+        b = pick any block from worklist
+        in[b] = merge(out[p] for every predecessor p of b)
+        out[b] = transfer(b, in[b])
+        if out[b] changed:
+            worklist += successors of b
+*/
+    const outs : Record<Block, Data> = {}
+    const ins : Record<Block, Data> = {}
+
+    const worklist : Block[] = [...graph.keys()]
+
+    // Iterate backwards
+    while (worklist.length > 0) {
+        const b = worklist.shift()!;
+        const succs = graph.get(b) ?? []
+        outs[b] = merge(succs.map(b => ins[b] || new Set()))
+        const prevIns = ins[b]
+        ins[b] = transfer(b, outs[b])
+        if (prevIns != ins[b]) { // no clue if this will work
+            worklist.concat(pred (graph, b))
+        }
+    }
+    return [ins, outs]
+}
+
+// Local Variable Analysis – Backwards Iteration
 const lva = (graph:graph, blocks : blockList) => {
-    type Block = string
     type data = Set<string>; // set of live variables
-
-    /* Difference of two sets (less experimentla technology) */
-    const difference = (s1 : Set<any>, s2 : Set<any>) : Set<any> => {
-        s2.forEach(elem => {
-            s1.add(elem);
-            s1.delete(elem);
-        })
-        return s1;
-    }
-
-    /* Difference of two sets (less experimentla technology) */
-    const union = (s1 : Set<any>, s2 : Set<any>) : Set<any> => {
-        s2.forEach(elem => s1.add(elem));
-        return s1;
-    }
 
     /* Merge function */
     const merge = (blocks: data[]): data => {
@@ -178,31 +234,7 @@ const lva = (graph:graph, blocks : blockList) => {
         return ins;
     }
 
-    return worklist(graph, transfer, merge);
-}
-
-/*
-    Generate an adjacency list mapping labels of basic blocks to their neighboring blocks
-    @param blocks – The set of basic blocks
-    @param labels – The set of block labels
-    @return – A graph representing the control-flow graph of the function
-*/
-const generateCFG = (blocks : blockList, labels : string[]) : graph => {
-    const graph : graph = new Map();
-    for (const [label, insns] of blocks) {
-        if (insns.length > 0 && insns[insns.length-1].labels) {
-            const tail = insns[insns.length-1].labels || [];
-            graph.set(label, tail);
-        } else {
-            const idx = labels.indexOf(label);
-            if (idx != -1 && idx != labels.length-1) {
-                graph.set(label, [labels[idx+1]]);
-            } else {
-                graph.set(label, []);
-            }
-        }
-    }
-    return graph;
+    return worklist_backwards<data>(graph, transfer, merge);
 }
 
 const runBril2Json = async (datastring: string): Promise<string> => {
