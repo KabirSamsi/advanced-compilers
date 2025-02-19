@@ -25,6 +25,21 @@ type graph = Map<string, string[]>;
 
 type Block = string;
 
+// Maps constant-folding opcodes to their relative functions
+const reduceMap : Map<string, Function> = new Map<string, Function>([
+    ["add", (x : number, y : number) => x+y],
+    ["mul", (x : number, y : number) => x*y],
+    ["sub", (x : number, y : number) => x-y],
+    ["eq", (x : number, y : number) => x == y],
+    ["ne", (x : number, y : number) : boolean => x != y],
+    ["le", (x : number, y : number) : boolean => x <= y],
+    ["ge", (x : number, y : number) : boolean => x >= y],
+    ["lt", (x : number, y : number) : boolean => x < y],
+    ["gt", (x : number, y : number) : boolean => x > y],
+    ["and", (x : boolean, y : boolean) : boolean => x && y],
+    ["or", (x : boolean, y : boolean) : boolean => x || y],
+]);
+
 /* Difference of two sets (less experimental technology) */
 const difference = (s1 : Set<any>, s2 : Set<any>) : Set<any> => {
     s2.forEach(elem => {
@@ -34,10 +49,24 @@ const difference = (s1 : Set<any>, s2 : Set<any>) : Set<any> => {
     return s1;
 }
 
-/* Difference of two sets (less experimentla technology) */
+/* Difference of two sets */
 const union = (s1 : Set<any>, s2 : Set<any>) : Set<any> => {
     s2.forEach(elem => s1.add(elem));
     return s1;
+}
+
+/* Intersection of two maps, only if their values are equivalent */
+const intersection = (s1 : Map<any, any>, s2 : Map<any, any>) : Map<any, any> => {
+    let result : Map<any, any> = new Map<any, any>();
+
+    for (let key of s1) {
+        if (s2.has(key)) {
+            if (s2.get(key) == s1.get(key)) {
+                result.set(key, s1.get(key));
+            }
+        }
+    }
+    return result;
 }
 
 /*
@@ -209,12 +238,12 @@ const lva = (graph : graph, blocks : blockList) => {
 
     /* Transfer function */
     const transfer = (b: Block, outs: data) : data => {
-        let ins : Set<string> = outs;
+        let ins : data = outs;
         for (let line of blocks.get(b)!.reverse()) {
             if (line.dest != undefined) {
                 ins.delete(line.dest!);
             }
-            let uses : Set<string> = new Set((line.args || []));
+            let uses : data = new Set((line.args || []));
             ins = union(ins, uses);
         }
         return ins;
@@ -238,7 +267,7 @@ const reaching = (graph : graph, blocks : blockList) => {
 
     /* Transfer function */
     const transfer = (b: Block, ins: data) : data => {
-        let outs : Set<brilInstruction> = ins;
+        let outs : data = ins;
         for (let line of blocks.get(b)!) {
             // If a definition is formed
             if (line.dest != undefined) {
@@ -254,6 +283,47 @@ const reaching = (graph : graph, blocks : blockList) => {
         return ins;
     }
 
+    return worklist_forwards<data>(graph, transfer, merge);
+}
+
+/* Constant propagation for numbers and booleans */
+const constantProp = (graph : graph, blocks : blockList) => {
+    type data = Map<string, number | boolean>; // set of live variables
+
+    /* Merge function (set intersection) */
+    const merge = (blocks: data[]): data => {
+        let result : data = new Map<string, number | boolean>();
+        for (let block of blocks) {
+            result = intersection(result, block);
+        }
+        return result;
+    }
+
+    /* Transfer function */
+    const transfer = (b: Block, ins: data) : data => {
+        let outs : data = ins;
+        for (let line of blocks.get(b)!) {
+            // If a definition is formed and uses only constants, add it
+            if (line.dest != undefined && line.op) {
+                if (reduceMap.has(line.op) && line.args) {
+                    if (line.args!.length == 2 &&
+                        outs.has(line.args[0]) &&
+                        outs.has(line.args[1])) {
+                            outs.set(line.dest,
+                                reduceMap.get(line.op)!(
+                                    outs.get(line.args[0]),
+                                    outs.get(line.args[1])
+                                )
+                            );
+                    }
+                // If the definition itself is a constant, add it as it is
+                } else if (line.op == "const") {
+                    outs.set(line.dest, line.value!);
+                }
+            }
+        }
+        return outs;
+    }
     return worklist_forwards<data>(graph, transfer, merge);
 }
 
