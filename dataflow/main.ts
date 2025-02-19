@@ -88,7 +88,7 @@ const basicBlocks = (instrs : Array<brilInstruction>) : [Map<string, Array<brilI
         if (insn.label) {
             if (curr.length > 0) {
                 if (curr_label == "") {
-                    blocks.set("lbl" + label_count, curr);   
+                    blocks.set("lbl" + label_count, curr);
                     label_count += 1;
                     label_order.push("lbl" + label_count);
                 } else {
@@ -101,7 +101,7 @@ const basicBlocks = (instrs : Array<brilInstruction>) : [Map<string, Array<brilI
             curr.push(insn);
             if (insn.op == "jmp" || insn.op == "br" || insn.op == "ret") {
                 if (curr_label == "") {
-                    blocks.set("lbl" + label_count, curr);   
+                    blocks.set("lbl" + label_count, curr);
                     label_count += 1;
                     label_order.push("lbl" + label_count);
                 } else {
@@ -117,7 +117,7 @@ const basicBlocks = (instrs : Array<brilInstruction>) : [Map<string, Array<brilI
     }
 
     if (curr_label == "") {
-        blocks.set("lbl" + label_count, curr);   
+        blocks.set("lbl" + label_count, curr);
         label_count += 1;
         label_order.push("lbl" + label_count);
     } else {
@@ -182,7 +182,7 @@ function worklist_forwards<Data>(graph : graph, transfer, merge) : Record<Block,
             if in[b] changed:
                 worklist += predecessors of b
     */
-    const ins : Record<Block, Data> = {}    
+    const ins : Record<Block, Data> = {}
     const outs : Record<Block, Data> = {}
 
     const worklist : Block[] = [...graph.keys()]
@@ -337,7 +337,7 @@ const constantProp = (graph : graph, blocks : blockList) => {
     return worklist_forwards<data>(graph, transfer, merge);
 }
 
-/* Execute dataflow analysis on bril programs */
+/* Convert Bril text programs into JSON representation using bril2json */
 const runBril2Json = async (datastring: string): Promise<string> => {
     const process = new Deno.Command("bril2json", {
         stdin: "piped",
@@ -360,7 +360,7 @@ const runBril2Json = async (datastring: string): Promise<string> => {
     return new TextDecoder().decode(stdout);
 };
 
-/* Read from cmd line */
+/* Read from standard in */
 const readStdin = async (): Promise<string> => {
     const stdin = Deno.stdin.readable
         .pipeThrough(new TextDecoderStream())
@@ -377,41 +377,55 @@ const readStdin = async (): Promise<string> => {
 
 /* Main function */
 const main = async () => {
+    const args = Deno.args; // Get command-line arguments
+
     let datastring = await readStdin();
 
     // Try to parse as JSON first
     try {
         JSON.parse(datastring);
     } catch {
-        // If parsing fails, assume it's Bril source and convert
+        // If JSON parsing fails, assume it's Bril text representation and convert
         datastring = await runBril2Json(datastring);
     }
 
-        const data: brilProgram = JSON.parse(datastring);
-        const result: brilProgram = { functions: [] };
+    const data: brilProgram = JSON.parse(datastring);
+    const result: brilProgram = { functions: [] };
+    const analysisType = args[0]
 
-        for (const fn of data.functions || []) {
-            if (result.functions) {
-                const [blocks, labelOrdering] = basicBlocks(fn.instrs ?? []);
-                const graph = generateCFG(blocks, labelOrdering);
-                const lva_res = lva(graph, blocks);
-                const reaching_res = reaching(graph, blocks);
-                const constant_res = constantProp(graph, blocks);
+    for (const fn of data.functions || []) {
+        if (result.functions) {
+            const [blocks, labelOrdering] = basicBlocks(fn.instrs ?? []);
+            const graph = generateCFG(blocks, labelOrdering);
 
-                for (let analysis of [lva_res, reaching_res, constant_res]) {
-                    console.log("\n");
-                    let [ins,outs] = analysis;
-                    for(const block of blocks) {
-                        const [name, _] = block;
-                        console.log(name+":");
-                        console.log(ins[name]);
-                        console.log(outs[name]);
-                    }
-                }
+            let analysisResult;
+            switch (analysisType) {
+                case "live":
+                    analysisResult = lva(graph, blocks);
+                    break;
+                case "reaching":
+                    analysisResult = reaching(graph, blocks);
+                    break;
+                case "cprop":
+                    analysisResult = constantProp(graph, blocks);
+                    break;
+                default:
+                    console.error("Invalid analysis type.");
+                    Deno.exit(1);
+            }
+
+            const [ins, outs] = analysisResult;
+            for (const block of blocks) {
+                const [name, _] = block;
+                console.log(`${name}:`);
+                console.log("  in:", ins[name]);
+                console.log("  out:", outs[name]);
             }
         }
+    }
 };
 
 if (import.meta.main) {
     main();
-};
+}
+
