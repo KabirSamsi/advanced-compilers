@@ -49,13 +49,13 @@ const difference = (s1 : Set<any>, s2 : Set<any>) : Set<any> => {
     return s1;
 }
 
-/* Difference of two sets */
+/* Union of two sets */
 const union = (s1 : Set<any>, s2 : Set<any>) : Set<any> => {
     s2.forEach(elem => s1.add(elem));
     return s1;
 }
 
-/* Difference of two sets */
+/* Key-value equivalent union of two maps */
 const unionMap = (s1 : Map<any, any>, s2 : Map<any, any>) : Map<any, any> => {
     s2.forEach((v, k) => {
         if (s1.has(k)) {
