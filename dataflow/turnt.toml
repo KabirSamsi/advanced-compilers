@@ -1,6 +1,6 @@
 [envs.reaching]
 command = "bril2json < {filename} | deno main.ts reaching"
-output."defined.out" = "-"
+output."reaching.out" = "-"
 
 [envs.live]
 command = "bril2json < {filename} | deno main.ts live"
