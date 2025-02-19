@@ -170,7 +170,18 @@ const pred = (adj : graph, node : string) : string[] => {
 
 /* Implementation of the worklist algorithm. */
 function worklist_forwards<Data>(graph : graph, transfer, merge) : Record<Block, Data>[] {
-    /* Pseudocode – reverse idea of previous function. */
+    /* Pseudocode
+        in[entry] = init
+        out[*] = init
+
+        worklist = all blocks
+        while worklist is not empty:
+            b = pick any block from worklist
+            out[b] = merge(in[p] for every successor p of b)
+            in[b] = transfer(b, out[b])
+            if in[b] changed:
+                worklist += predecessors of b
+    */
     const ins : Record<Block, Data> = {}    
     const outs : Record<Block, Data> = {}
 
@@ -182,7 +193,7 @@ function worklist_forwards<Data>(graph : graph, transfer, merge) : Record<Block,
         ins[b] = merge(preds.map(p => outs[p] || new Set()))
         const prevOuts = outs[b]
         outs[b] = transfer(b, ins[b])
-        if (prevOuts != outs[b]) { // no clue if this will work
+        if (prevOuts != outs[b]) {
             worklist.concat(succ(graph, b))
         }
     }
@@ -193,17 +204,17 @@ function worklist_forwards<Data>(graph : graph, transfer, merge) : Record<Block,
 /* Implementation of the worklist algorithm, going in reverse order. */
 function worklist_backwards<Data>(graph, transfer, merge) : Record<Block, Data>[] {
     /* Pseudocode
-    in[entry] = init
-    out[*] = init
+        out[entry] = init
+        in[*] = init
 
-    worklist = all blocks
-    while worklist is not empty:
-        b = pick any block from worklist
-        in[b] = merge(out[p] for every predecessor p of b)
-        out[b] = transfer(b, in[b])
-        if out[b] changed:
-            worklist += successors of b
-*/
+        worklist = all blocks
+        while worklist is not empty:
+            b = pick any block from worklist
+            in[b] = merge(out[p] for every predecessor p of b)
+            out[b] = transfer(b, in[b])
+            if out[b] changed:
+                worklist += successors of b
+    */
     const outs : Record<Block, Data> = {}
     const ins : Record<Block, Data> = {}
 
@@ -215,7 +226,7 @@ function worklist_backwards<Data>(graph, transfer, merge) : Record<Block, Data>[
         outs[b] = merge(succs.map(b => ins[b] || new Set()))
         const prevIns = ins[b]
         ins[b] = transfer(b, outs[b])
-        if (prevIns != ins[b]) { // no clue if this will work
+        if (prevIns != ins[b]) {
             worklist.concat(pred(graph, b))
         }
     }
