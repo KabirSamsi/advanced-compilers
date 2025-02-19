@@ -142,37 +142,24 @@ const pred = (adj : graph, node : string) : string[] => {
 
 /* Implementation of the worklist algorithm. */
 function worklist_forwards<Data>(graph : graph, transfer, merge) : Record<Block, Data>[] {
-    /* Pseudocode
-    in[entry] = init
-    out[*] = init
-
-    worklist = all blocks
-    while worklist is not empty:
-        b = pick any block from worklist
-        in[b] = merge(out[p] for every predecessor p of b)
-        out[b] = transfer(b, in[b])
-        if out[b] changed:
-            worklist += successors of b
-*/
+    /* Pseudocode – reverse idea of previous function. */
     const ins : Record<Block, Data> = {}    
     const outs : Record<Block, Data> = {}
 
     const worklist : Block[] = [...graph.keys()]
 
-    // Iterate backwards
     while (worklist.length > 0) {
         const b = worklist.shift()!;
         const succs = graph.get(b) ?? []
-        outs[b] = merge(succs.map(b => ins[b] || new Set()))
-        const prevIns = ins[b]
-        ins[b] = transfer(b, outs[b])
-        if (prevIns != ins[b]) { // no clue if this will work
-            worklist.concat(pred(graph, b))
+        ins[b] = merge(succs.map(b => outs[b] || new Set()))
+        const prevOuts = outs[b]
+        outs[b] = transfer(b, ins[b])
+        if (prevOuts != outs[b]) { // no clue if this will work
+            worklist.concat(succ(graph, b))
         }
     }
     return [ins, outs]
 }
-
 
 
 /* Implementation of the worklist algorithm, going in reverse order. */
@@ -194,7 +181,6 @@ function worklist_backwards<Data>(graph, transfer, merge) : Record<Block, Data>[
 
     const worklist : Block[] = [...graph.keys()]
 
-    // Iterate backwards
     while (worklist.length > 0) {
         const b = worklist.shift()!;
         const succs = graph.get(b) ?? []
@@ -208,8 +194,8 @@ function worklist_backwards<Data>(graph, transfer, merge) : Record<Block, Data>[
     return [ins, outs]
 }
 
-// Local Variable Analysis – Backwards Iteration
-const lva = (graph:graph, blocks : blockList) => {
+// Live Variable Analysis
+const lva = (graph : graph, blocks : blockList) => {
     type data = Set<string>; // set of live variables
 
     /* Merge function */
@@ -222,8 +208,8 @@ const lva = (graph:graph, blocks : blockList) => {
     }
 
     /* Transfer function */
-    const transfer = (b: Block, out: data) : data => {
-        let ins : Set<string> = out;
+    const transfer = (b: Block, outs: data) : data => {
+        let ins : Set<string> = outs;
         for (let line of blocks.get(b)!.reverse()) {
             if (line.dest != undefined) {
                 ins.delete(line.dest!);
@@ -236,6 +222,41 @@ const lva = (graph:graph, blocks : blockList) => {
 
     return worklist_backwards<data>(graph, transfer, merge);
 }
+
+// Reaching Definitions Analysis
+const reaching = (graph : graph, blocks : blockList) => {
+    type data = Set<brilInstruction>; // set of live variables
+
+    /* Merge function */
+    const merge = (blocks: data[]): data => {
+        let result : data = new Set<brilInstruction>();
+        for (let block of blocks) {
+            result = union(result, block);
+        }
+        return result;
+    }
+
+    /* Transfer function */
+    const transfer = (b: Block, ins: data) : data => {
+        let outs : Set<brilInstruction> = ins;
+        for (let line of blocks.get(b)!) {
+            // If a definition is formed
+            if (line.dest != undefined) {
+                for (let elem of outs) {
+                    if (elem.dest! == line.dest) {
+                        outs.delete(elem);
+                        break;
+                    }
+                }
+                outs.add(line);
+            }
+        }
+        return ins;
+    }
+
+    return worklist_forwards<data>(graph, transfer, merge);
+}
+
 
 const runBril2Json = async (datastring: string): Promise<string> => {
     const process = new Deno.Command("bril2json", {
