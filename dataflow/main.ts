@@ -23,6 +23,9 @@ type blockList = Map<string, brilInstruction[]>;
 
 type graph = Map<string, string[]>;
 
+type Block = string
+type data = Set<string>; // set of live variables
+
 /* Extract successors of a block (indexed by label) in a CFG. */
 const succ = (adj : graph, node : string) : string[] => {
     return adj.get(node) || [];
@@ -99,16 +102,39 @@ const basicBlocks = (instrs : Array<brilInstruction>) : [Map<string, Array<brilI
     return [blocks, label_order];
 }
 
-// in[entry] = init
-// out[*] = init
-//
-// worklist = all blocks
-// while worklist is not empty:
-//     b = pick any block from worklist
-//     in[b] = merge(out[p] for every predecessor p of b)
-//     out[b] = transfer(b, in[b])
-//     if out[b] changed:
-//         worklist += successors of b
+/* Pseudocode
+    in[entry] = init
+    out[*] = init
+
+    worklist = all blocks
+    while worklist is not empty:
+        b = pick any block from worklist
+        in[b] = merge(out[p] for every predecessor p of b)
+        out[b] = transfer(b, in[b])
+        if out[b] changed:
+            worklist += successors of b
+*/
+
+const worklist = (graph, transfer, merge) => {
+
+    const outs : Record<Block, data> = {}
+    const ins : Record<Block, data> = {}
+
+    const worklist : Block[] = [...graph.keys()]
+
+    // Iterate backwards
+    while (worklist.length > 0) {
+        const b = worklist.shift()!;
+        const succs = graph.get(b) ?? []
+        outs[b] = merge(succs.map(b => ins[b] || new Set()))
+        const prevIns = ins[b]
+        ins[b] = transfer(b, outs[b])
+        if (prevIns != ins[b]) { // no clue if this will work
+            worklist.concat(pred(graph,b))
+        }
+    }
+    return [ins, outs]
+}
 
 // backwards analysis
 const lva = (graph:graph, blocks : blockList) => {
@@ -152,23 +178,7 @@ const lva = (graph:graph, blocks : blockList) => {
         return ins;
     }
 
-    const outs : Record<Block, data> = {}
-    const ins : Record<Block, data> = {}
-
-    const worklist : Block[] = [...graph.keys()]
-
-    // backwards
-    while (worklist.length > 0) {
-        const b = worklist.shift()!;
-        const succs = graph.get(b) ?? []
-        outs[b] = merge(succs.map(b => ins[b] || new Set()))
-        const prevIns = ins[b]
-        ins[b] = transfer(b, outs[b])
-        if (prevIns != ins[b]) { // no clue if this will work
-            worklist.concat(pred(graph,b))
-        }
-    }
-    return [ins, outs]
+    return worklist(graph, transfer, merge);
 }
 
 /*
