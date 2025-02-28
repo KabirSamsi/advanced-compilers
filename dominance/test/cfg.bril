@@ -1,0 +1,7 @@
+@main {
+  a: int = const 0;
+  ret a;
+  b: int = id a;
+  jmp .bob;
+  .bob:
+}
