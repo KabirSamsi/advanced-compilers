@@ -161,7 +161,7 @@ const succ = (adj: graph, node: string): string[] => {
 };
 
 /* Extract predecessors of a block (indexed by label) in a CFG. */
-const pred = (adj: graph, node: string): string[] => {
+export const pred = (adj: graph, node: string): string[] => {
   const predecessors: string[] = [];
   for (const neighbor of adj.keys()) {
     if ((adj.get(neighbor) || []).includes(node)) {
