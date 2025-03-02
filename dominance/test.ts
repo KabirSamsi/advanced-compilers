@@ -147,7 +147,7 @@ function verifyDominanceFrontier(tree : graph, g : [graph, string], frontier : g
 }
 
 for await (const entry of Deno.readDir("test")) {
-  if (entry.isFile) {
+  if (entry.isFile && entry.name.endsWith(".bril")) {
     Deno.test(`Testing file: ${entry.name}`, async () => {
       const fileContent = await Deno.readTextFile(`test/${entry.name}`);
       const cfgs = await CFGs(fileContent);
