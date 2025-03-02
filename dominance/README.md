@@ -5,14 +5,15 @@ We again use Deno. You can install it [here](https://docs.deno.com/runtime/getti
 Example run for main
 
 ```shell
-deno --allow-run main.ts < test/cfg.bril dom
-deno --allow-run main.ts < test/cfg.bril tree
-deno --allow-run main.ts < test/cfg.bril frontier
+deno --allow-run main.ts < test/loopcond.bril dom
+deno --allow-run main.ts < test/loopcond.bril tree
+deno --allow-run main.ts < test/loopcond.bril front
 ```
 
-We use turnt to verify output of each.
+We use turnt to verify output of each against the bril repo.
+
 ```shell
-turnt brilrepo/*.bril
+turnt test/*.bril
 ```
 
 
