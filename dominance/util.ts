@@ -134,6 +134,23 @@ const generateCFG = (blocks: blockList, labels: string[]): [graph, string] => {
       }
     }
   }
+
+  // If the first block has no in-edges, don't do anything. If there are, then add a fresh entry block with no in edges.
+  let into_first : boolean = false;
+  for (let node of graph.keys()) {
+    if (graph.get(node)!.includes(blocks.keys().toArray()[0])) {
+      into_first = true;
+    }
+  }
+
+  if (into_first) {
+    let i : number = 0;
+    while (graph.has("entry" + i)) {
+      i += 1;
+    }
+    graph.set("entry" + i, []);
+  }
+
   return [graph, blocks.keys().toArray()[0] || ""];
 };
 
