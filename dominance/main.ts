@@ -32,23 +32,6 @@ const prettyPrint = (map: Map<any, any>) => {
   console.log(JSON.stringify(sortedObj, null, 2));
 };
 
-const main = (cfgs: Record<string, [graph, string]>, mode: Mode) => {
-  const ret : Record<string, any> = {}
-  for (const func in cfgs) {
-    const cfg = cfgs[func];
-    const doms = computeDominators(cfg);
-    if (mode === "dom") {
-      ret[func] = doms
-      prettyPrint(doms);
-    } else if (mode === "tree") {
-      const tree = dominanceTree(doms);
-      ret[func] = tree
-      prettyPrint(tree);
-    }
-  }
-  return ret;
-};
-
 const bigIntersection = <T>(sets: Set<T>[]): Set<T> => {
   if (sets.length === 0) return new Set();
   let result = new Set(sets[0]);
@@ -125,7 +108,7 @@ const computeDominators = (arg: [graph, string]) => {
   return dom;
 };
 
-function dominanceTree(dom: Map<string, Set<string>>): graph {
+const dominanceTree = (dom: Map<string, Set<string>>): graph => {
   // inverted dominance map
   const inverted = mapInv(dom);
 
@@ -156,10 +139,60 @@ function dominanceTree(dom: Map<string, Set<string>>): graph {
   }
 
   return result;
-}
+};
+
+const dominanceFrontier = (
+  dom: Map<string, Set<string>>,
+  cfg: graph,
+): Map<string, string[]> => {
+  const result = new Map<string, string[]>();
+
+  const inverted = mapInv(dom);
+
+  for (const node of dom.keys()) {
+    const dominatedSuccessors = new Set<string>();
+
+    const dominatedBlocks = inverted.get(node);
+    if (dominatedBlocks) {
+      for (const dominated of dominatedBlocks) {
+        cfg.get(dominated)?.forEach((successors) => {
+          dominatedSuccessors.add(successors);
+        });
+      }
+    }
+    result.set(
+      node,
+      [...dominatedSuccessors].filter((b) =>
+        b === node || !inverted.get(node)?.has(b)
+      ),
+    );
+  }
+  return result;
+};
 
 const modes = ["dom", "front", "tree"] as const;
 export type Mode = typeof modes[number];
+
+const main = (cfgs: Record<string, [graph, string]>, mode: Mode) => {
+  const ret: Record<string, any> = {};
+  for (const func in cfgs) {
+    const cfg = cfgs[func];
+    const doms = computeDominators(cfg);
+    if (mode === "dom") {
+      ret[func] = doms;
+      prettyPrint(doms);
+    } else if (mode === "tree") {
+      const tree = dominanceTree(doms);
+      ret[func] = tree;
+      prettyPrint(tree);
+    } else if (mode === "front") {
+      const frontier = dominanceFrontier(doms, cfg[0]);
+      ret[func] = frontier;
+      prettyPrint(frontier);
+    }
+  }
+  return ret;
+};
 
 if (import.meta.main) {
   const datastring = await readStdin();
