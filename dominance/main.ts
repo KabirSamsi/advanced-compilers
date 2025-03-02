@@ -24,7 +24,7 @@ const main = (cfgs: Record<string, [graph, string]>, mode: Mode) => {
       const obj = Object.fromEntries(
           Array.from(doms, ([key, valueSet]) => [key, Array.from(valueSet)]),
       );
-      console.log(obj);
+      console.log(JSON.stringify(obj, null, 2));
     }
   }
 };
