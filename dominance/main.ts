@@ -33,16 +33,20 @@ const prettyPrint = (map: Map<any, any>) => {
 };
 
 const main = (cfgs: Record<string, [graph, string]>, mode: Mode) => {
+  const ret : Record<string, any> = {}
   for (const func in cfgs) {
     const cfg = cfgs[func];
     const doms = computeDominators(cfg);
     if (mode === "dom") {
+      ret[func] = doms
       prettyPrint(doms);
     } else if (mode === "tree") {
       const tree = dominanceTree(doms);
+      ret[func] = tree
       prettyPrint(tree);
     }
   }
+  return ret;
 };
 
 const bigIntersection = <T>(sets: Set<T>[]): Set<T> => {
