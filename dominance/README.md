@@ -2,10 +2,10 @@
 
 We again use Deno. You can install it [here](https://docs.deno.com/runtime/getting_started/installation/).
 
-Example run for main
+Example run for main to get dominators
 
 ```shell
-deno --allow-run main.ts < test/cfg.bril
+deno --allow-run main.ts < test/cfg.bril dom
 ```
 
 To run tests against everything in the test file. You need `--allow-read` for reading the bril programs and `--allow-run` so it can run `bril2json`.

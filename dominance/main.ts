@@ -2,8 +2,8 @@ import { CFGs, graph } from "./util.ts";
 
 export const readStdin = async (): Promise<string> => {
   const stdin = Deno.stdin.readable
-    .pipeThrough(new TextDecoderStream())
-    .getReader();
+      .pipeThrough(new TextDecoderStream())
+      .getReader();
 
   let datastring = "";
   while (true) {
@@ -15,11 +15,17 @@ export const readStdin = async (): Promise<string> => {
 };
 
 /* Main function */
-const main = (cfgs: Record<string, [graph, string]>, args: string[]) => {
+const main = (cfgs: Record<string, [graph, string]>, mode: Mode) => {
   for (const func in cfgs) {
-    const cfg = cfgs[func][0];
+    const cfg = cfgs[func];
+    console.log(cfg);
     const doms = computeDominators(cfg);
-    console.log(doms);
+    if (mode === "dom") {
+      const obj = Object.fromEntries(
+          Array.from(doms, ([key, valueSet]) => [key, Array.from(valueSet)]),
+      );
+      console.log(obj);
+    }
   }
 };
 
@@ -40,15 +46,20 @@ const setEquals = <T>(setA: Set<T>, setB: Set<T>): boolean => {
   return true;
 };
 
-const computeDominators = (cfg: graph) => {
-  const vertices  = [...cfg.keys()]
+const computeDominators = (arg: [graph, string]) => {
+  const cfg = arg[0];
+  const vertices = [...cfg.keys()];
 
   // compute predecessors
   const predsMap = new Map<string, Set<string>>();
-  vertices.forEach((v) => {predsMap.set(v, new Set());})
+  vertices.forEach((v) => {
+    predsMap.set(v, new Set());
+  });
   cfg.entries().forEach(([v, succs]) => {
-    succs.forEach((succ) => {predsMap.get(succ)!.add(v)})
-  })
+    succs.forEach((succ) => {
+      predsMap.get(succ)!.add(v);
+    });
+  });
 
   // dom = {each vertex -> all vertices}
   const dom = new Map<string, Set<string>>();
@@ -63,11 +74,13 @@ const computeDominators = (cfg: graph) => {
 
     // for vertex in CFG:
     for (const v of vertices) {
-      const preds = predsMap.get(v)
+      const preds = predsMap.get(v);
 
       // dom[p] for p in vertex.preds
       const predDoms: Set<string>[] = [];
-      preds?.forEach(p => {predDoms.push(dom.get(p)!);})
+      preds?.forEach((p) => {
+        predDoms.push(dom.get(p)!);
+      });
       // ∩(dom[p] for p in vertex.preds)
       const newDom = bigIntersection(predDoms);
       // {vertex} u ...
@@ -81,12 +94,20 @@ const computeDominators = (cfg: graph) => {
   }
 
   return dom;
-}
+};
+
+const modes = ["dom" ,"front" , "tree"] as const;
+export type Mode = typeof modes[number];
 
 if (import.meta.main) {
   const datastring = await readStdin();
   const cfgs = await CFGs(datastring);
-  main(cfgs, Deno.args);
+  const args = Deno.args;
+  if (args.length < 1 || !modes.includes(args[0] as Mode)) {
+    console.error(`Please specify one of: ${modes.join(", ")}`);
+    Deno.exit(1);
+  }
+  main(cfgs, (Deno.args[0] as Mode))
 }
 
 export default main;
