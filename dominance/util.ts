@@ -68,6 +68,7 @@ const basicBlocks = (
   let curr: Array<brilInstruction> = [];
   for (const insn of instrs) {
     // End block if it is a label or a terminator
+
     if (insn.label) {
       if (curr.length > 0) {
         if (curr_label == "") {
@@ -79,6 +80,7 @@ const basicBlocks = (
           label_order.push(curr_label);
         }
       }
+      curr = [];
       curr_label = insn.label; // Update new label
     } else if (insn.op) {
       curr.push(insn);
@@ -117,7 +119,7 @@ const basicBlocks = (
     @param labels – The set of block labels
     @return – A graph representing the control-flow graph of the function
 */
-const generateCFG = (blocks: blockList, labels: string[]): graph => {
+const generateCFG = (blocks: blockList, labels: string[]): [graph, string] => {
   const graph: graph = new Map();
   for (const [label, insns] of blocks) {
     if (insns.length > 0 && insns[insns.length - 1].labels) {
@@ -132,7 +134,7 @@ const generateCFG = (blocks: blockList, labels: string[]): graph => {
       }
     }
   }
-  return graph;
+  return [graph, blocks.keys().toArray()[0] || ""];
 };
 
 export const CFGs = async (brildata: string) => {
@@ -144,11 +146,12 @@ export const CFGs = async (brildata: string) => {
 
   const data: brilProgram = JSON.parse(brildata);
 
-  const ret: Record<string, graph> = {};
+  const ret: Record<string, [graph, string]> = {};
   for (const fn of data.functions || []) {
     const [blocks, labelOrdering] = basicBlocks(fn.instrs ?? []);
-    const graph = generateCFG(blocks, labelOrdering);
-    ret[fn.name!] = graph;
+    console.log(blocks, labelOrdering);
+    const [graph, entry] = generateCFG(blocks, labelOrdering);
+    ret[fn.name!] = [graph, entry];
   }
   return ret;
 };

@@ -1,0 +1,644 @@
+{
+  "functions": [
+    {
+      "args": [
+        {
+          "name": "size",
+          "type": "int"
+        },
+        {
+          "name": "n1",
+          "type": "int"
+        },
+        {
+          "name": "n2",
+          "type": "int"
+        },
+        {
+          "name": "n3",
+          "type": "int"
+        },
+        {
+          "name": "n4",
+          "type": "int"
+        },
+        {
+          "name": "n5",
+          "type": "int"
+        }
+      ],
+      "instrs": [
+        {
+          "dest": "one",
+          "op": "const",
+          "type": "int",
+          "value": 1
+        },
+        {
+          "dest": "i",
+          "op": "const",
+          "type": "int",
+          "value": 0
+        },
+        {
+          "args": [
+            "size"
+          ],
+          "dest": "array",
+          "op": "alloc",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "args": [
+            "array",
+            "i"
+          ],
+          "dest": "loc",
+          "op": "ptradd",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "args": [
+            "loc",
+            "n1"
+          ],
+          "op": "store"
+        },
+        {
+          "args": [
+            "i",
+            "one"
+          ],
+          "dest": "i",
+          "op": "add",
+          "type": "int"
+        },
+        {
+          "args": [
+            "array",
+            "i"
+          ],
+          "dest": "loc",
+          "op": "ptradd",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "args": [
+            "loc",
+            "n2"
+          ],
+          "op": "store"
+        },
+        {
+          "args": [
+            "i",
+            "one"
+          ],
+          "dest": "i",
+          "op": "add",
+          "type": "int"
+        },
+        {
+          "args": [
+            "array",
+            "i"
+          ],
+          "dest": "loc",
+          "op": "ptradd",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "args": [
+            "loc",
+            "n3"
+          ],
+          "op": "store"
+        },
+        {
+          "args": [
+            "i",
+            "one"
+          ],
+          "dest": "i",
+          "op": "add",
+          "type": "int"
+        },
+        {
+          "args": [
+            "array",
+            "i"
+          ],
+          "dest": "loc",
+          "op": "ptradd",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "args": [
+            "loc",
+            "n4"
+          ],
+          "op": "store"
+        },
+        {
+          "args": [
+            "i",
+            "one"
+          ],
+          "dest": "i",
+          "op": "add",
+          "type": "int"
+        },
+        {
+          "args": [
+            "array",
+            "i"
+          ],
+          "dest": "loc",
+          "op": "ptradd",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "args": [
+            "loc",
+            "n5"
+          ],
+          "op": "store"
+        },
+        {
+          "args": [
+            "array"
+          ],
+          "op": "ret"
+        }
+      ],
+      "name": "pack",
+      "type": {
+        "ptr": "int"
+      }
+    },
+    {
+      "args": [
+        {
+          "name": "array",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "name": "size",
+          "type": "int"
+        }
+      ],
+      "instrs": [
+        {
+          "dest": "i",
+          "op": "const",
+          "type": "int",
+          "value": 0
+        },
+        {
+          "dest": "one",
+          "op": "const",
+          "type": "int",
+          "value": 1
+        },
+        {
+          "label": "loop"
+        },
+        {
+          "args": [
+            "i",
+            "size"
+          ],
+          "dest": "cond",
+          "op": "lt",
+          "type": "bool"
+        },
+        {
+          "args": [
+            "cond"
+          ],
+          "labels": [
+            "body",
+            "done"
+          ],
+          "op": "br"
+        },
+        {
+          "label": "body"
+        },
+        {
+          "args": [
+            "array",
+            "i"
+          ],
+          "dest": "loc",
+          "op": "ptradd",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "args": [
+            "loc"
+          ],
+          "dest": "val",
+          "op": "load",
+          "type": "int"
+        },
+        {
+          "args": [
+            "val"
+          ],
+          "op": "print"
+        },
+        {
+          "label": "loop_end"
+        },
+        {
+          "args": [
+            "i",
+            "one"
+          ],
+          "dest": "i",
+          "op": "add",
+          "type": "int"
+        },
+        {
+          "labels": [
+            "loop"
+          ],
+          "op": "jmp"
+        },
+        {
+          "label": "done"
+        },
+        {
+          "op": "ret"
+        }
+      ],
+      "name": "print_array"
+    },
+    {
+      "args": [
+        {
+          "name": "array",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "name": "target",
+          "type": "int"
+        },
+        {
+          "name": "left",
+          "type": "int"
+        },
+        {
+          "name": "right",
+          "type": "int"
+        }
+      ],
+      "instrs": [
+        {
+          "dest": "negone",
+          "op": "const",
+          "type": "int",
+          "value": -1
+        },
+        {
+          "dest": "zero",
+          "op": "const",
+          "type": "int",
+          "value": 0
+        },
+        {
+          "dest": "one",
+          "op": "const",
+          "type": "int",
+          "value": 1
+        },
+        {
+          "dest": "two",
+          "op": "const",
+          "type": "int",
+          "value": 2
+        },
+        {
+          "label": "check_valid"
+        },
+        {
+          "args": [
+            "left",
+            "right"
+          ],
+          "dest": "end_cond",
+          "op": "gt",
+          "type": "bool"
+        },
+        {
+          "args": [
+            "end_cond"
+          ],
+          "labels": [
+            "end",
+            "body"
+          ],
+          "op": "br"
+        },
+        {
+          "label": "body"
+        },
+        {
+          "args": [
+            "left",
+            "right"
+          ],
+          "dest": "mid",
+          "op": "add",
+          "type": "int"
+        },
+        {
+          "args": [
+            "mid",
+            "two"
+          ],
+          "dest": "mid",
+          "op": "div",
+          "type": "int"
+        },
+        {
+          "label": "check_equal"
+        },
+        {
+          "args": [
+            "array",
+            "mid"
+          ],
+          "dest": "midloc",
+          "op": "ptradd",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "args": [
+            "midloc"
+          ],
+          "dest": "midval",
+          "op": "load",
+          "type": "int"
+        },
+        {
+          "args": [
+            "target",
+            "midval"
+          ],
+          "dest": "equal_cond",
+          "op": "eq",
+          "type": "bool"
+        },
+        {
+          "args": [
+            "equal_cond"
+          ],
+          "labels": [
+            "found",
+            "check_gt"
+          ],
+          "op": "br"
+        },
+        {
+          "label": "found"
+        },
+        {
+          "args": [
+            "mid"
+          ],
+          "op": "ret"
+        },
+        {
+          "label": "check_gt"
+        },
+        {
+          "args": [
+            "target",
+            "midval"
+          ],
+          "dest": "gt_cond",
+          "op": "gt",
+          "type": "bool"
+        },
+        {
+          "args": [
+            "gt_cond"
+          ],
+          "labels": [
+            "call_gt",
+            "call_lt"
+          ],
+          "op": "br"
+        },
+        {
+          "label": "call_gt"
+        },
+        {
+          "args": [
+            "left",
+            "one"
+          ],
+          "dest": "newleft",
+          "op": "add",
+          "type": "int"
+        },
+        {
+          "args": [
+            "array",
+            "target",
+            "newleft",
+            "right"
+          ],
+          "dest": "output",
+          "funcs": [
+            "binary_search"
+          ],
+          "op": "call",
+          "type": "int"
+        },
+        {
+          "args": [
+            "output"
+          ],
+          "op": "ret"
+        },
+        {
+          "label": "call_lt"
+        },
+        {
+          "args": [
+            "right",
+            "one"
+          ],
+          "dest": "newright",
+          "op": "sub",
+          "type": "int"
+        },
+        {
+          "args": [
+            "array",
+            "target",
+            "left",
+            "newright"
+          ],
+          "dest": "output",
+          "funcs": [
+            "binary_search"
+          ],
+          "op": "call",
+          "type": "int"
+        },
+        {
+          "args": [
+            "output"
+          ],
+          "op": "ret"
+        },
+        {
+          "label": "end"
+        },
+        {
+          "args": [
+            "negone"
+          ],
+          "dest": "output",
+          "op": "id",
+          "type": "int"
+        },
+        {
+          "args": [
+            "output"
+          ],
+          "op": "ret"
+        }
+      ],
+      "name": "binary_search",
+      "type": "int"
+    },
+    {
+      "instrs": [
+        {
+          "dest": "target",
+          "op": "const",
+          "type": "int",
+          "value": 7
+        },
+        {
+          "dest": "size",
+          "op": "const",
+          "type": "int",
+          "value": 5
+        },
+        {
+          "dest": "e1",
+          "op": "const",
+          "type": "int",
+          "value": 1
+        },
+        {
+          "dest": "e2",
+          "op": "const",
+          "type": "int",
+          "value": 2
+        },
+        {
+          "dest": "e3",
+          "op": "const",
+          "type": "int",
+          "value": 6
+        },
+        {
+          "dest": "e4",
+          "op": "const",
+          "type": "int",
+          "value": 7
+        },
+        {
+          "dest": "e5",
+          "op": "const",
+          "type": "int",
+          "value": 11
+        },
+        {
+          "dest": "zero",
+          "op": "const",
+          "type": "int",
+          "value": 0
+        },
+        {
+          "dest": "four",
+          "op": "const",
+          "type": "int",
+          "value": 4
+        },
+        {
+          "args": [
+            "size",
+            "e1",
+            "e2",
+            "e3",
+            "e4",
+            "e5"
+          ],
+          "dest": "array",
+          "funcs": [
+            "pack"
+          ],
+          "op": "call",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "args": [
+            "array",
+            "target",
+            "zero",
+            "four"
+          ],
+          "dest": "output",
+          "funcs": [
+            "binary_search"
+          ],
+          "op": "call",
+          "type": "int"
+        },
+        {
+          "args": [
+            "output"
+          ],
+          "op": "print"
+        },
+        {
+          "args": [
+            "array"
+          ],
+          "op": "free"
+        }
+      ],
+      "name": "main"
+    }
+  ]
+}

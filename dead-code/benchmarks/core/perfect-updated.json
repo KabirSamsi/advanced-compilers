@@ -1,0 +1,16 @@
+n n undefined
+sum sum undefined
+i i undefined
+result result undefined
+ii ii undefined
+comp comp undefined
+qut qut undefined
+mpt mpt undefined
+dif dif undefined
+comp1 comp1 undefined
+sum _v_3_2 sum
+sum sum undefined
+i i undefined
+comp2 comp2 undefined
+result result undefined
+{"functions":[{"name":"main","instrs":[{"dest":"n","op":"id","args":["input"],"type":"int"},{"dest":"v0","op":"const","type":"int","value":0},{"dest":"v1","op":"const","type":"int","value":1},{"dest":"v2","op":"const","type":"int","value":2},{"dest":"sum","op":"id","args":["v1"],"type":"int"},{"dest":"i","op":"id","args":["v2"],"type":"int"},{"dest":"result","op":"id","args":["v1"],"type":"int"},{"label":"for.cond.1"},{"args":["i","i"],"dest":"ii","op":"mul","type":"int"},{"args":["ii","n"],"dest":"comp","op":"gt","type":"bool"},{"args":["comp"],"labels":["for.end","for.body"],"op":"br"},{"label":"for.body"},{"args":["n","i"],"dest":"qut","op":"div","type":"int"},{"args":["i","qut"],"dest":"mpt","op":"mul","type":"int"},{"args":["n","mpt"],"dest":"dif","op":"sub","type":"int"},{"args":["dif","v0"],"dest":"comp1","op":"eq","type":"bool"},{"args":["comp1"],"labels":["if.body","for.incre"],"op":"br"},{"label":"if.body"},{"args":["_v_3_2","i"],"dest":"_v_3_2","op":"add","type":"int"},{"args":["_v_3_2","qut"],"dest":"sum","op":"add","type":"int"},{"label":"for.incre"},{"args":["i","v1"],"dest":"i","op":"add","type":"int"},{"labels":["for.cond.1"],"op":"jmp"},{"label":"for.end"},{"args":["sum","n"],"dest":"comp2","op":"eq","type":"bool"},{"args":["comp2"],"labels":["if.success","if.failure.end"],"op":"br"},{"label":"if.success"},{"dest":"result","op":"id","args":["v0"],"type":"int"},{"label":"if.failure.end"},{"args":["result"],"op":"print"}],"args":[{"name":"input","type":"int"}]}]}

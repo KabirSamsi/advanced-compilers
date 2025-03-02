@@ -15,9 +15,9 @@ export const readStdin = async (): Promise<string> => {
 };
 
 /* Main function */
-const main = (cfgs: Record<string, graph>, args: string[]) => {
+const main = (cfgs: Record<string, [graph, string]>, args: string[]) => {
   for (const func in cfgs) {
-    const cfg = cfgs[func];
+    const cfg = cfgs[func][0];
     const doms = computeDominators(cfg);
     console.log(doms);
   }

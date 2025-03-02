@@ -1,0 +1,1568 @@
+{
+  "functions": [
+    {
+      "args": [
+        {
+          "name": "arr",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "name": "size",
+          "type": "int"
+        }
+      ],
+      "instrs": [
+        {
+          "dest": "one",
+          "op": "const",
+          "type": "int",
+          "value": 1
+        },
+        {
+          "dest": "i",
+          "op": "const",
+          "type": "int",
+          "value": 0
+        },
+        {
+          "label": "loop"
+        },
+        {
+          "args": [
+            "i",
+            "size"
+          ],
+          "dest": "cond",
+          "op": "lt",
+          "type": "bool"
+        },
+        {
+          "args": [
+            "cond"
+          ],
+          "labels": [
+            "printmore",
+            "done"
+          ],
+          "op": "br"
+        },
+        {
+          "label": "printmore"
+        },
+        {
+          "args": [
+            "arr",
+            "i"
+          ],
+          "dest": "idx",
+          "op": "ptradd",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "args": [
+            "idx"
+          ],
+          "dest": "elem",
+          "op": "load",
+          "type": "int"
+        },
+        {
+          "args": [
+            "elem"
+          ],
+          "op": "print"
+        },
+        {
+          "label": "loopcheck"
+        },
+        {
+          "args": [
+            "i",
+            "one"
+          ],
+          "dest": "i",
+          "op": "add",
+          "type": "int"
+        },
+        {
+          "labels": [
+            "loop"
+          ],
+          "op": "jmp"
+        },
+        {
+          "label": "done"
+        },
+        {
+          "op": "print"
+        },
+        {
+          "op": "ret"
+        }
+      ],
+      "name": "print_through"
+    },
+    {
+      "args": [
+        {
+          "name": "stack",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "name": "newnode",
+          "type": "int"
+        },
+        {
+          "name": "size",
+          "type": "int"
+        }
+      ],
+      "instrs": [
+        {
+          "dest": "zero",
+          "op": "const",
+          "type": "int",
+          "value": 0
+        },
+        {
+          "args": [
+            "size",
+            "zero"
+          ],
+          "dest": "empty",
+          "op": "eq",
+          "type": "bool"
+        },
+        {
+          "args": [
+            "empty"
+          ],
+          "labels": [
+            "push_empty",
+            "push_nonempty"
+          ],
+          "op": "br"
+        },
+        {
+          "label": "push_empty"
+        },
+        {
+          "args": [
+            "stack",
+            "newnode"
+          ],
+          "op": "store"
+        },
+        {
+          "args": [
+            "stack"
+          ],
+          "op": "ret"
+        },
+        {
+          "label": "push_nonempty"
+        },
+        {
+          "dest": "one",
+          "op": "const",
+          "type": "int",
+          "value": 1
+        },
+        {
+          "args": [
+            "size",
+            "one"
+          ],
+          "dest": "newsize",
+          "op": "add",
+          "type": "int"
+        },
+        {
+          "args": [
+            "newsize"
+          ],
+          "dest": "result",
+          "op": "alloc",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "dest": "i",
+          "op": "const",
+          "type": "int",
+          "value": 0
+        },
+        {
+          "args": [
+            "result",
+            "i"
+          ],
+          "dest": "write_idx",
+          "op": "ptradd",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "args": [
+            "write_idx",
+            "newnode"
+          ],
+          "op": "store"
+        },
+        {
+          "args": [
+            "stack",
+            "i"
+          ],
+          "dest": "read_idx",
+          "op": "ptradd",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "args": [
+            "i",
+            "one"
+          ],
+          "dest": "i",
+          "op": "add",
+          "type": "int"
+        },
+        {
+          "label": "copyloop"
+        },
+        {
+          "args": [
+            "i",
+            "newsize"
+          ],
+          "dest": "cond",
+          "op": "lt",
+          "type": "bool"
+        },
+        {
+          "args": [
+            "cond"
+          ],
+          "labels": [
+            "copy",
+            "done"
+          ],
+          "op": "br"
+        },
+        {
+          "label": "copy"
+        },
+        {
+          "args": [
+            "read_idx"
+          ],
+          "dest": "top",
+          "op": "load",
+          "type": "int"
+        },
+        {
+          "args": [
+            "result",
+            "i"
+          ],
+          "dest": "write_idx",
+          "op": "ptradd",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "args": [
+            "write_idx",
+            "top"
+          ],
+          "op": "store"
+        },
+        {
+          "args": [
+            "stack",
+            "i"
+          ],
+          "dest": "read_idx",
+          "op": "ptradd",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "label": "loop_end"
+        },
+        {
+          "args": [
+            "i",
+            "one"
+          ],
+          "dest": "i",
+          "op": "add",
+          "type": "int"
+        },
+        {
+          "labels": [
+            "copyloop"
+          ],
+          "op": "jmp"
+        },
+        {
+          "label": "done"
+        },
+        {
+          "args": [
+            "stack"
+          ],
+          "op": "free"
+        },
+        {
+          "args": [
+            "result"
+          ],
+          "op": "ret"
+        }
+      ],
+      "name": "push",
+      "type": {
+        "ptr": "int"
+      }
+    },
+    {
+      "args": [
+        {
+          "name": "stack",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "name": "size",
+          "type": "int"
+        }
+      ],
+      "instrs": [
+        {
+          "dest": "one",
+          "op": "const",
+          "type": "int",
+          "value": 1
+        },
+        {
+          "args": [
+            "size",
+            "one"
+          ],
+          "dest": "has_one",
+          "op": "eq",
+          "type": "bool"
+        },
+        {
+          "args": [
+            "has_one"
+          ],
+          "labels": [
+            "pop_one",
+            "pop_multiple"
+          ],
+          "op": "br"
+        },
+        {
+          "label": "pop_one"
+        },
+        {
+          "dest": "negone",
+          "op": "const",
+          "type": "int",
+          "value": -1
+        },
+        {
+          "args": [
+            "stack",
+            "negone"
+          ],
+          "op": "store"
+        },
+        {
+          "args": [
+            "stack"
+          ],
+          "op": "ret"
+        },
+        {
+          "label": "pop_multiple"
+        },
+        {
+          "args": [
+            "size",
+            "one"
+          ],
+          "dest": "newsize",
+          "op": "sub",
+          "type": "int"
+        },
+        {
+          "args": [
+            "newsize"
+          ],
+          "dest": "result",
+          "op": "alloc",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "dest": "i",
+          "op": "const",
+          "type": "int",
+          "value": 1
+        },
+        {
+          "label": "copyloop"
+        },
+        {
+          "args": [
+            "i",
+            "size"
+          ],
+          "dest": "cond",
+          "op": "lt",
+          "type": "bool"
+        },
+        {
+          "args": [
+            "cond"
+          ],
+          "labels": [
+            "copy",
+            "done"
+          ],
+          "op": "br"
+        },
+        {
+          "label": "copy"
+        },
+        {
+          "args": [
+            "stack",
+            "i"
+          ],
+          "dest": "read_idx",
+          "op": "ptradd",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "args": [
+            "read_idx"
+          ],
+          "dest": "top",
+          "op": "load",
+          "type": "int"
+        },
+        {
+          "args": [
+            "i",
+            "one"
+          ],
+          "dest": "write_pos",
+          "op": "sub",
+          "type": "int"
+        },
+        {
+          "args": [
+            "result",
+            "write_pos"
+          ],
+          "dest": "write_idx",
+          "op": "ptradd",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "args": [
+            "write_idx",
+            "top"
+          ],
+          "op": "store"
+        },
+        {
+          "label": "loop_end"
+        },
+        {
+          "args": [
+            "i",
+            "one"
+          ],
+          "dest": "i",
+          "op": "add",
+          "type": "int"
+        },
+        {
+          "labels": [
+            "copyloop"
+          ],
+          "op": "jmp"
+        },
+        {
+          "label": "done"
+        },
+        {
+          "args": [
+            "stack"
+          ],
+          "op": "free"
+        },
+        {
+          "args": [
+            "result"
+          ],
+          "op": "ret"
+        }
+      ],
+      "name": "pop",
+      "type": {
+        "ptr": "int"
+      }
+    },
+    {
+      "args": [
+        {
+          "name": "visited",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "name": "n",
+          "type": "int"
+        }
+      ],
+      "instrs": [
+        {
+          "dest": "i",
+          "op": "const",
+          "type": "int",
+          "value": 0
+        },
+        {
+          "dest": "zero",
+          "op": "const",
+          "type": "int",
+          "value": 0
+        },
+        {
+          "dest": "one",
+          "op": "const",
+          "type": "int",
+          "value": 1
+        },
+        {
+          "label": "loop"
+        },
+        {
+          "args": [
+            "visited",
+            "i"
+          ],
+          "dest": "offset",
+          "op": "ptradd",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "args": [
+            "offset"
+          ],
+          "dest": "loaded",
+          "op": "load",
+          "type": "int"
+        },
+        {
+          "args": [
+            "i",
+            "n"
+          ],
+          "dest": "bounds",
+          "op": "eq",
+          "type": "bool"
+        },
+        {
+          "args": [
+            "loaded",
+            "zero"
+          ],
+          "dest": "found",
+          "op": "eq",
+          "type": "bool"
+        },
+        {
+          "args": [
+            "bounds",
+            "found"
+          ],
+          "dest": "cond",
+          "op": "or",
+          "type": "bool"
+        },
+        {
+          "args": [
+            "cond"
+          ],
+          "labels": [
+            "terminate",
+            "continue"
+          ],
+          "op": "br"
+        },
+        {
+          "label": "continue"
+        },
+        {
+          "args": [
+            "i",
+            "one"
+          ],
+          "dest": "i",
+          "op": "add",
+          "type": "int"
+        },
+        {
+          "labels": [
+            "loop"
+          ],
+          "op": "jmp"
+        },
+        {
+          "label": "terminate"
+        },
+        {
+          "args": [
+            "i"
+          ],
+          "op": "ret"
+        }
+      ],
+      "name": "first_unvisited",
+      "type": "int"
+    },
+    {
+      "args": [
+        {
+          "name": "graph",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "name": "n",
+          "type": "int"
+        }
+      ],
+      "instrs": [
+        {
+          "dest": "zero",
+          "op": "const",
+          "type": "int",
+          "value": 0
+        },
+        {
+          "dest": "one",
+          "op": "const",
+          "type": "int",
+          "value": 1
+        },
+        {
+          "args": [
+            "n"
+          ],
+          "dest": "visited",
+          "op": "alloc",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "dest": "i",
+          "op": "const",
+          "type": "int",
+          "value": 0
+        },
+        {
+          "label": "populate_visited"
+        },
+        {
+          "args": [
+            "i",
+            "n"
+          ],
+          "dest": "cond",
+          "op": "lt",
+          "type": "bool"
+        },
+        {
+          "args": [
+            "cond"
+          ],
+          "labels": [
+            "keep_looping",
+            "rest"
+          ],
+          "op": "br"
+        },
+        {
+          "label": "keep_looping"
+        },
+        {
+          "args": [
+            "visited",
+            "i"
+          ],
+          "dest": "offset",
+          "op": "ptradd",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "args": [
+            "offset",
+            "zero"
+          ],
+          "op": "store"
+        },
+        {
+          "args": [
+            "i",
+            "one"
+          ],
+          "dest": "i",
+          "op": "add",
+          "type": "int"
+        },
+        {
+          "labels": [
+            "populate_visited"
+          ],
+          "op": "jmp"
+        },
+        {
+          "label": "rest"
+        },
+        {
+          "dest": "visited_count",
+          "op": "const",
+          "type": "int",
+          "value": 0
+        },
+        {
+          "dest": "components",
+          "op": "const",
+          "type": "int",
+          "value": 0
+        },
+        {
+          "label": "component_loop"
+        },
+        {
+          "args": [
+            "visited_count",
+            "n"
+          ],
+          "dest": "cond",
+          "op": "lt",
+          "type": "bool"
+        },
+        {
+          "args": [
+            "cond"
+          ],
+          "labels": [
+            "dfs_init",
+            "end"
+          ],
+          "op": "br"
+        },
+        {
+          "label": "dfs_init"
+        },
+        {
+          "args": [
+            "visited",
+            "n"
+          ],
+          "dest": "next_node",
+          "funcs": [
+            "first_unvisited"
+          ],
+          "op": "call",
+          "type": "int"
+        },
+        {
+          "args": [
+            "one"
+          ],
+          "dest": "component_cluster",
+          "op": "alloc",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "args": [
+            "component_cluster",
+            "next_node"
+          ],
+          "op": "store"
+        },
+        {
+          "dest": "cluster_size",
+          "op": "const",
+          "type": "int",
+          "value": 1
+        },
+        {
+          "args": [
+            "visited",
+            "next_node"
+          ],
+          "dest": "visited_offset",
+          "op": "ptradd",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "args": [
+            "visited_offset",
+            "one"
+          ],
+          "op": "store"
+        },
+        {
+          "args": [
+            "one"
+          ],
+          "dest": "stack",
+          "op": "alloc",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "dest": "stack_size",
+          "op": "const",
+          "type": "int",
+          "value": 1
+        },
+        {
+          "args": [
+            "stack",
+            "next_node"
+          ],
+          "op": "store"
+        },
+        {
+          "args": [
+            "visited_count",
+            "one"
+          ],
+          "dest": "visited_count",
+          "op": "add",
+          "type": "int"
+        },
+        {
+          "label": "dfs_loop"
+        },
+        {
+          "args": [
+            "stack_size",
+            "zero"
+          ],
+          "dest": "cond",
+          "op": "gt",
+          "type": "bool"
+        },
+        {
+          "args": [
+            "cond"
+          ],
+          "labels": [
+            "trav_loop",
+            "terminate"
+          ],
+          "op": "br"
+        },
+        {
+          "label": "trav_loop"
+        },
+        {
+          "args": [
+            "stack"
+          ],
+          "dest": "top",
+          "op": "load",
+          "type": "int"
+        },
+        {
+          "args": [
+            "stack",
+            "stack_size"
+          ],
+          "dest": "stack",
+          "funcs": [
+            "pop"
+          ],
+          "op": "call",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "args": [
+            "stack_size",
+            "one"
+          ],
+          "dest": "stack_size",
+          "op": "sub",
+          "type": "int"
+        },
+        {
+          "dest": "i",
+          "op": "const",
+          "type": "int",
+          "value": 0
+        },
+        {
+          "label": "neighbor_loop"
+        },
+        {
+          "args": [
+            "i",
+            "n"
+          ],
+          "dest": "iter_cond",
+          "op": "lt",
+          "type": "bool"
+        },
+        {
+          "args": [
+            "iter_cond"
+          ],
+          "labels": [
+            "iter",
+            "break"
+          ],
+          "op": "br"
+        },
+        {
+          "label": "iter"
+        },
+        {
+          "args": [
+            "top",
+            "n"
+          ],
+          "dest": "row_idx",
+          "op": "mul",
+          "type": "int"
+        },
+        {
+          "args": [
+            "row_idx",
+            "i"
+          ],
+          "dest": "cell_idx",
+          "op": "add",
+          "type": "int"
+        },
+        {
+          "args": [
+            "graph",
+            "cell_idx"
+          ],
+          "dest": "cell",
+          "op": "ptradd",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "args": [
+            "cell"
+          ],
+          "dest": "cell_data",
+          "op": "load",
+          "type": "int"
+        },
+        {
+          "args": [
+            "visited",
+            "i"
+          ],
+          "dest": "visited_cell",
+          "op": "ptradd",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "args": [
+            "visited_cell"
+          ],
+          "dest": "visited_data",
+          "op": "load",
+          "type": "int"
+        },
+        {
+          "args": [
+            "cell_data",
+            "one"
+          ],
+          "dest": "is_neighbor",
+          "op": "eq",
+          "type": "bool"
+        },
+        {
+          "args": [
+            "visited_data",
+            "zero"
+          ],
+          "dest": "not_visited",
+          "op": "eq",
+          "type": "bool"
+        },
+        {
+          "args": [
+            "is_neighbor",
+            "not_visited"
+          ],
+          "dest": "push_cond",
+          "op": "and",
+          "type": "bool"
+        },
+        {
+          "args": [
+            "push_cond"
+          ],
+          "labels": [
+            "push_stack",
+            "no_push"
+          ],
+          "op": "br"
+        },
+        {
+          "label": "push_stack"
+        },
+        {
+          "args": [
+            "stack",
+            "i",
+            "stack_size"
+          ],
+          "dest": "stack",
+          "funcs": [
+            "push"
+          ],
+          "op": "call",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "args": [
+            "stack_size",
+            "one"
+          ],
+          "dest": "stack_size",
+          "op": "add",
+          "type": "int"
+        },
+        {
+          "args": [
+            "component_cluster",
+            "i",
+            "cluster_size"
+          ],
+          "dest": "component_cluster",
+          "funcs": [
+            "push"
+          ],
+          "op": "call",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "args": [
+            "cluster_size",
+            "one"
+          ],
+          "dest": "cluster_size",
+          "op": "add",
+          "type": "int"
+        },
+        {
+          "args": [
+            "visited_cell",
+            "one"
+          ],
+          "op": "store"
+        },
+        {
+          "args": [
+            "visited_count",
+            "one"
+          ],
+          "dest": "visited_count",
+          "op": "add",
+          "type": "int"
+        },
+        {
+          "label": "no_push"
+        },
+        {
+          "args": [
+            "i",
+            "one"
+          ],
+          "dest": "i",
+          "op": "add",
+          "type": "int"
+        },
+        {
+          "labels": [
+            "neighbor_loop"
+          ],
+          "op": "jmp"
+        },
+        {
+          "label": "break"
+        },
+        {
+          "labels": [
+            "dfs_loop"
+          ],
+          "op": "jmp"
+        },
+        {
+          "label": "terminate"
+        },
+        {
+          "args": [
+            "components",
+            "one"
+          ],
+          "dest": "components",
+          "op": "add",
+          "type": "int"
+        },
+        {
+          "args": [
+            "stack"
+          ],
+          "op": "free"
+        },
+        {
+          "args": [
+            "component_cluster",
+            "cluster_size"
+          ],
+          "funcs": [
+            "print_through"
+          ],
+          "op": "call"
+        },
+        {
+          "args": [
+            "component_cluster"
+          ],
+          "op": "free"
+        },
+        {
+          "labels": [
+            "component_loop"
+          ],
+          "op": "jmp"
+        },
+        {
+          "label": "end"
+        },
+        {
+          "args": [
+            "visited"
+          ],
+          "op": "free"
+        },
+        {
+          "args": [
+            "components"
+          ],
+          "op": "ret"
+        }
+      ],
+      "name": "dfs",
+      "type": "int"
+    },
+    {
+      "args": [
+        {
+          "name": "graph",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "name": "from",
+          "type": "int"
+        },
+        {
+          "name": "to",
+          "type": "int"
+        },
+        {
+          "name": "size",
+          "type": "int"
+        }
+      ],
+      "instrs": [
+        {
+          "dest": "one",
+          "op": "const",
+          "type": "int",
+          "value": 1
+        },
+        {
+          "args": [
+            "from",
+            "size"
+          ],
+          "dest": "offset_count",
+          "op": "mul",
+          "type": "int"
+        },
+        {
+          "args": [
+            "offset_count",
+            "to"
+          ],
+          "dest": "offset_count",
+          "op": "add",
+          "type": "int"
+        },
+        {
+          "args": [
+            "graph",
+            "offset_count"
+          ],
+          "dest": "offset",
+          "op": "ptradd",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "args": [
+            "offset",
+            "one"
+          ],
+          "op": "store"
+        },
+        {
+          "args": [
+            "to",
+            "size"
+          ],
+          "dest": "offset_count",
+          "op": "mul",
+          "type": "int"
+        },
+        {
+          "args": [
+            "offset_count",
+            "from"
+          ],
+          "dest": "offset_count",
+          "op": "add",
+          "type": "int"
+        },
+        {
+          "args": [
+            "graph",
+            "offset_count"
+          ],
+          "dest": "offset",
+          "op": "ptradd",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "args": [
+            "offset",
+            "one"
+          ],
+          "op": "store"
+        }
+      ],
+      "name": "insert_edge"
+    },
+    {
+      "args": [
+        {
+          "name": "nodes",
+          "type": "int"
+        }
+      ],
+      "instrs": [
+        {
+          "args": [
+            "nodes",
+            "nodes"
+          ],
+          "dest": "dim",
+          "op": "mul",
+          "type": "int"
+        },
+        {
+          "args": [
+            "dim"
+          ],
+          "dest": "adj",
+          "op": "alloc",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "dest": "zero",
+          "op": "const",
+          "type": "int",
+          "value": 0
+        },
+        {
+          "dest": "one",
+          "op": "const",
+          "type": "int",
+          "value": 1
+        },
+        {
+          "dest": "two",
+          "op": "const",
+          "type": "int",
+          "value": 2
+        },
+        {
+          "dest": "three",
+          "op": "const",
+          "type": "int",
+          "value": 3
+        },
+        {
+          "dest": "four",
+          "op": "const",
+          "type": "int",
+          "value": 4
+        },
+        {
+          "dest": "five",
+          "op": "const",
+          "type": "int",
+          "value": 5
+        },
+        {
+          "dest": "six",
+          "op": "const",
+          "type": "int",
+          "value": 6
+        },
+        {
+          "dest": "seven",
+          "op": "const",
+          "type": "int",
+          "value": 7
+        },
+        {
+          "dest": "i",
+          "op": "const",
+          "type": "int",
+          "value": 0
+        },
+        {
+          "label": "init_loop"
+        },
+        {
+          "args": [
+            "i",
+            "dim"
+          ],
+          "dest": "cond",
+          "op": "lt",
+          "type": "bool"
+        },
+        {
+          "args": [
+            "cond"
+          ],
+          "labels": [
+            "continue",
+            "fill_edges"
+          ],
+          "op": "br"
+        },
+        {
+          "label": "continue"
+        },
+        {
+          "args": [
+            "adj",
+            "i"
+          ],
+          "dest": "offset",
+          "op": "ptradd",
+          "type": {
+            "ptr": "int"
+          }
+        },
+        {
+          "args": [
+            "offset",
+            "zero"
+          ],
+          "op": "store"
+        },
+        {
+          "args": [
+            "i",
+            "one"
+          ],
+          "dest": "i",
+          "op": "add",
+          "type": "int"
+        },
+        {
+          "labels": [
+            "init_loop"
+          ],
+          "op": "jmp"
+        },
+        {
+          "label": "fill_edges"
+        },
+        {
+          "args": [
+            "adj",
+            "zero",
+            "five",
+            "nodes"
+          ],
+          "funcs": [
+            "insert_edge"
+          ],
+          "op": "call"
+        },
+        {
+          "args": [
+            "adj",
+            "one",
+            "two",
+            "nodes"
+          ],
+          "funcs": [
+            "insert_edge"
+          ],
+          "op": "call"
+        },
+        {
+          "args": [
+            "adj",
+            "two",
+            "three",
+            "nodes"
+          ],
+          "funcs": [
+            "insert_edge"
+          ],
+          "op": "call"
+        },
+        {
+          "args": [
+            "adj",
+            "one",
+            "four",
+            "nodes"
+          ],
+          "funcs": [
+            "insert_edge"
+          ],
+          "op": "call"
+        },
+        {
+          "args": [
+            "adj",
+            "two",
+            "four",
+            "nodes"
+          ],
+          "funcs": [
+            "insert_edge"
+          ],
+          "op": "call"
+        },
+        {
+          "args": [
+            "adj",
+            "six",
+            "seven",
+            "nodes"
+          ],
+          "funcs": [
+            "insert_edge"
+          ],
+          "op": "call"
+        },
+        {
+          "label": "compute_components"
+        },
+        {
+          "args": [
+            "adj",
+            "nodes"
+          ],
+          "dest": "components",
+          "funcs": [
+            "dfs"
+          ],
+          "op": "call",
+          "type": "int"
+        },
+        {
+          "args": [
+            "adj"
+          ],
+          "op": "free"
+        },
+        {
+          "args": [
+            "components"
+          ],
+          "op": "print"
+        }
+      ],
+      "name": "main"
+    }
+  ]
+}

@@ -1,4 +1,0 @@
-@main() {
-  zero : int = const 0;
-  empty : ptr<int> = alloc zero;
-}

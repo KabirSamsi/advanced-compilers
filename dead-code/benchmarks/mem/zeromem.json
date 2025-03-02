@@ -1,0 +1,25 @@
+{
+  "functions": [
+    {
+      "instrs": [
+        {
+          "dest": "zero",
+          "op": "const",
+          "type": "int",
+          "value": 0
+        },
+        {
+          "args": [
+            "zero"
+          ],
+          "dest": "tester",
+          "op": "alloc",
+          "type": {
+            "ptr": "int"
+          }
+        }
+      ],
+      "name": "main"
+    }
+  ]
+}
