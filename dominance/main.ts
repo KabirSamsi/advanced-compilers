@@ -21,9 +21,17 @@ const main = (cfgs: Record<string, [graph, string]>, mode: Mode) => {
     const doms = computeDominators(cfg);
     if (mode === "dom") {
       const obj = Object.fromEntries(
-          Array.from(doms, ([key, valueSet]) => [key, Array.from(valueSet)]),
+          Array.from(doms, ([key, valueSet]) => [key, Array.from(valueSet).sort()]),
       );
-      console.log(JSON.stringify(obj, null, 2));
+
+      const sortedObj = Object.keys(obj)
+          .sort()
+          .reduce((acc, key) => {
+            acc[key] = obj[key];
+            return acc;
+          }, {} as { [key: string]: any });
+
+      console.log(JSON.stringify(sortedObj, null, 2));
     }
   }
 };
