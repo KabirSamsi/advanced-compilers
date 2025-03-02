@@ -135,7 +135,8 @@ const generateCFG = (blocks: blockList, labels: string[]): [graph, string] => {
     }
   }
 
-  // If the first block has no in-edges, don't do anything. If there are, then add a fresh entry block with no in edges.
+  /* If the first block has no in-edges, don't do anything.
+    If there are, then add a fresh entry block pointing to the actual first element. */
   let into_first : boolean = false;
   for (let node of graph.keys()) {
     if (graph.get(node)!.includes(blocks.keys().toArray()[0])) {
@@ -144,11 +145,11 @@ const generateCFG = (blocks: blockList, labels: string[]): [graph, string] => {
   }
 
   if (into_first) {
-    let i : number = 0;
+    let i : number = 1;
     while (graph.has("entry" + i)) {
       i += 1;
     }
-    graph.set("entry" + i, []);
+    graph.set("entry" + i, [blocks.keys().toArray()[0] || ""]);
   }
 
   return [graph, blocks.keys().toArray()[0] || ""];
