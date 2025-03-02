@@ -18,7 +18,6 @@ export const readStdin = async (): Promise<string> => {
 const main = (cfgs: Record<string, [graph, string]>, mode: Mode) => {
   for (const func in cfgs) {
     const cfg = cfgs[func];
-    console.log(cfg);
     const doms = computeDominators(cfg);
     if (mode === "dom") {
       const obj = Object.fromEntries(

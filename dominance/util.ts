@@ -149,7 +149,6 @@ export const CFGs = async (brildata: string) => {
   const ret: Record<string, [graph, string]> = {};
   for (const fn of data.functions || []) {
     const [blocks, labelOrdering] = basicBlocks(fn.instrs ?? []);
-    console.log(blocks, labelOrdering);
     const [graph, entry] = generateCFG(blocks, labelOrdering);
     ret[fn.name!] = [graph, entry];
   }
