@@ -5,7 +5,7 @@ output."dom.json" = "-"
 #[envs.front]
 #command = "bril2json < {filename} | deno ../main.ts front"
 #output."front.json" = "-"
-#
-#[envs.tree]
-#command = "bril2json < {filename} | deno ../main.ts tree"
-#output."tree.json" = "-"
+
+[envs.tree]
+command = "bril2json < {filename} | deno ../main.ts tree"
+output."tree.json" = "-"

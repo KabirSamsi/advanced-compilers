@@ -2,8 +2,8 @@ import { CFGs, graph } from "./util.ts";
 
 export const readStdin = async (): Promise<string> => {
   const stdin = Deno.stdin.readable
-      .pipeThrough(new TextDecoderStream())
-      .getReader();
+    .pipeThrough(new TextDecoderStream())
+    .getReader();
 
   let datastring = "";
   while (true) {
@@ -14,24 +14,33 @@ export const readStdin = async (): Promise<string> => {
   return datastring.trim();
 };
 
-/* Main function */
+const prettyPrint = (map: Map<any, any>) => {
+  const obj = Object.fromEntries(
+    Array.from(
+      map,
+      ([key, valueSet]) => [key, Array.from(valueSet).sort()],
+    ),
+  );
+
+  const sortedObj = Object.keys(obj)
+    .sort()
+    .reduce((acc, key) => {
+      acc[key] = obj[key];
+      return acc;
+    }, {} as { [key: string]: any });
+
+  console.log(JSON.stringify(sortedObj, null, 2));
+};
+
 const main = (cfgs: Record<string, [graph, string]>, mode: Mode) => {
   for (const func in cfgs) {
     const cfg = cfgs[func];
     const doms = computeDominators(cfg);
     if (mode === "dom") {
-      const obj = Object.fromEntries(
-          Array.from(doms, ([key, valueSet]) => [key, Array.from(valueSet).sort()]),
-      );
-
-      const sortedObj = Object.keys(obj)
-          .sort()
-          .reduce((acc, key) => {
-            acc[key] = obj[key];
-            return acc;
-          }, {} as { [key: string]: any });
-
-      console.log(JSON.stringify(sortedObj, null, 2));
+      prettyPrint(doms);
+    } else if (mode === "tree") {
+      const tree = dominanceTree(doms);
+      prettyPrint(tree);
     }
   }
 };
@@ -52,6 +61,15 @@ const setEquals = <T>(setA: Set<T>, setB: Set<T>): boolean => {
   }
   return true;
 };
+
+function mapInv(map: Map<string, Set<string>>): Map<string, Set<string>> {
+  const out = new Map<string, Set<string>>();
+  for (const key of map.keys()) out.set(key, new Set());
+  for (const [node, successors] of map.entries()) {
+    for (const s of successors) out.get(s)!.add(node);
+  }
+  return out;
+}
 
 const computeDominators = (arg: [graph, string]) => {
   const cfg = arg[0];
@@ -103,7 +121,40 @@ const computeDominators = (arg: [graph, string]) => {
   return dom;
 };
 
-const modes = ["dom" ,"front" , "tree"] as const;
+function dominanceTree(dom: Map<string, Set<string>>): graph {
+  // inverted dominance map
+  const inverted = mapInv(dom);
+
+  // remove reflexive
+  const invertedStrict = new Map<string, Set<string>>(
+    [...inverted].map(([key, values]) => [
+      key,
+      new Set([...values].filter((val) => val !== key)),
+    ]),
+  );
+
+  // second-level strict dominance
+  const invertedStrict2 = new Map<string, Set<string>>();
+  for (const [key, values] of invertedStrict) {
+    const unionSet = new Set<string>(
+      [...values].flatMap((child) =>
+        Array.from(invertedStrict.get(child) ?? [])
+      ),
+    );
+    invertedStrict2.set(key, unionSet);
+  }
+
+  // remove values present in the second-level set
+  const result = new Map<string, string[]>();
+  for (const [key, values] of invertedStrict) {
+    const secondSet = invertedStrict2.get(key) || new Set<string>();
+    result.set(key, [...values].filter((v) => !secondSet.has(v)));
+  }
+
+  return result;
+}
+
+const modes = ["dom", "front", "tree"] as const;
 export type Mode = typeof modes[number];
 
 if (import.meta.main) {
@@ -114,7 +165,7 @@ if (import.meta.main) {
     console.error(`Please specify one of: ${modes.join(", ")}`);
     Deno.exit(1);
   }
-  main(cfgs, (Deno.args[0] as Mode))
+  main(cfgs, Deno.args[0] as Mode);
 }
 
 export default main;
