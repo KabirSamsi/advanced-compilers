@@ -110,7 +110,6 @@ function getsAllDominators(tree : graph, g : [graph, string]) {
   for (const f of cfg.keys()) {
     for (const t of cfg.keys()) {
       // f dominates t <=> t is a descendent of f in the dominator tree
-      let doesdom = dom(cfg, entry, f, t);
       assert(dom(cfg, entry, f, t)  == getDominated(tree, f).includes(t));
     }
   }
@@ -139,30 +138,35 @@ function verifyDominanceFrontier(tree : graph, g : [graph, string], frontier : g
     dominated.set(node, getDominated(tree, node));
   }
 
+  // Iterate through each node in the frontier, and through the graph.
   for (let node of frontier.keys()) {
     for (let neighbor of cfg.keys()) {
-      // If node's frontier includes neighbor, but it is either strictly dominated or
+      /* For each neighbor
+      * If the neighbor is in A's frontier, then
+        * A does not strictly dominate B (means A == B or B is not in A's dominated)
+        * For all predecessors in B, A dominates at least one of them
+      */
+
       if (frontier.get(node)!.includes(neighbor)) {
-        /* Assert
-          * B is in A's frontier
-          * A does not dominate B
-          * A dominates at least one of B's predecessors */
-        assertFalse(dominated.get(node)!.includes(neighbor));
-        let doesNotDominate : boolean = true;
-        for (let pred of preds.get(neighbor)!) {
-          if (dominated.get(node)!.includes(pred)) {
-            doesNotDominate = false;
+        assertFalse(node != neighbor && dominated.get(node)!.includes(neighbor));
+        let dominatesOne : boolean = false;
+        for (let p of preds.get(neighbor)!) {
+          if (dominated.get(node)!.includes(p)) {
+            dominatesOne = true;
           }
         }
-        assertFalse(doesNotDominate);
-      } else {
-        /* Assert
-          * B is not in A's frontier
-          * A does not dominate B
-          * A does not dominate any of B's predecessors */
-        if(dominated.get(node)!.includes(neighbor)) {
-          for (let pred of preds.get(neighbor)!) {
-            assertFalse(dominated.get(node)!.includes(pred));
+        assert(dominatesOne);
+      }
+
+      /*
+        * If A does not strictly dominate B (means A == B or B is not in A's dominated)
+        * Scan through all of B's predecesors. If A dominates at least one of them:
+        * Then B should be in A's frontier
+      */
+      if (node == neighbor || !dominated.get(node)!.includes(neighbor)) {
+        for (let p of preds.get(neighbor)!) {
+          if (dominated.get(node)!.includes(p)) {
+            assert(frontier.get(node)!.includes(neighbor));
           }
         }
       }
@@ -189,11 +193,11 @@ for await (const entry of Deno.readDir("test")) {
       const trees = main(cfgs, "tree");
       const frontiers = main(cfgs, "front");
 
-      // for (const lbl of Object.keys(cfgs)) {
-      //   let tree = trees[lbl];
-      //   let frontier = frontiers[lbl];
-      //   verifyDominanceFrontier(tree, cfgs[lbl], frontier);
-      // }
+      for (const lbl of Object.keys(cfgs)) {
+        let tree = trees[lbl];
+        let frontier = frontiers[lbl];
+        verifyDominanceFrontier(tree, cfgs[lbl], frontier);
+      }
     });
   }
 }
