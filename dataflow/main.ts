@@ -64,60 +64,66 @@ const unionMap = (s1 : Map<any, any>, s2 : Map<any, any>) : Map<any, any> => {
     @param instrs – The set of initial, unblocked instructions.
     @return – A series of blocks marked with their corresponding labels, along with an ordering of labels.
 */
-const basicBlocks = (instrs : Array<brilInstruction>) : [Map<string, Array<brilInstruction>>, Array<string>] => {
-    // Store all labeled blocks
-    const blocks : Map<string, brilInstruction[]> = new Map<string, Array<brilInstruction>>();
-    const label_order : string[] = [];
-    let label_count : number = 0;
+const basicBlocks = (
+  instrs: Array<brilInstruction>,
+): [Map<string, Array<brilInstruction>>, Array<string>] => {
+  // Store all labeled blocks
+  const blocks: Map<string, brilInstruction[]> = new Map<
+    string,
+    Array<brilInstruction>
+  >();
+  const label_order: string[] = [];
+  let label_count: number = 0;
 
-    // Traverse each block and add it
-    let curr_label : string = "";
-    let curr : Array<brilInstruction> = [];
-    for (const insn of instrs) {
+  // Traverse each block and add it
+  let curr_label: string = "";
+  let curr: Array<brilInstruction> = [];
+  for (const insn of instrs) {
+    // End block if it is a label or a terminator
 
-        // End block if it is a label or a terminator
-        if (insn.label) {
-            if (curr.length > 0) {
-                if (curr_label == "") {
-                    blocks.set("lbl" + label_count, curr);
-                    label_count += 1;
-                    label_order.push("lbl" + label_count);
-                } else {
-                    blocks.set(curr_label, curr);
-                    label_order.push(curr_label);
-                }
-            }
-            curr_label = insn.label; // Update new label
-        } else if (insn.op) {
-            curr.push(insn);
-            if (insn.op == "jmp" || insn.op == "br" || insn.op == "ret") {
-                if (curr_label == "") {
-                    blocks.set("lbl" + label_count, curr);
-                    label_count += 1;
-                    label_order.push("lbl" + label_count);
-                } else {
-                    blocks.set(curr_label, curr);
-                    label_order.push(curr_label);
-                }
-                curr = [];
-                curr_label = ""; // Until we have a new starting label, treat as dead code
-            }
+    if (insn.label) {
+      if (curr.length > 0) {
+        if (curr_label == "") {
+          blocks.set("lbl" + label_count, curr);
+          label_count += 1;
+          label_order.push("lbl" + label_count);
         } else {
-            curr.push(insn);
+          blocks.set(curr_label, curr);
+          label_order.push(curr_label);
         }
-    }
-
-    if (curr_label == "") {
-        blocks.set("lbl" + label_count, curr);
-        label_count += 1;
-        label_order.push("lbl" + label_count);
+      }
+      curr = [];
+      curr_label = insn.label; // Update new label
+    } else if (insn.op) {
+      curr.push(insn);
+      if (insn.op == "jmp" || insn.op == "br" || insn.op == "ret") {
+        if (curr_label == "") {
+          blocks.set("lbl" + label_count, curr);
+          label_count += 1;
+          label_order.push("lbl" + label_count);
+        } else {
+          blocks.set(curr_label, curr);
+          label_order.push(curr_label);
+        }
+        curr = [];
+        curr_label = ""; // Until we have a new starting label, treat as dead code
+      }
     } else {
-        blocks.set(curr_label, curr);
-        label_order.push(curr_label);
+      curr.push(insn);
     }
+  }
 
-    return [blocks, label_order];
-}
+  if (curr_label == "") {
+    blocks.set("lbl" + label_count, curr);
+    label_count += 1;
+    label_order.push("lbl" + label_count);
+  } else {
+    blocks.set(curr_label, curr);
+    label_order.push(curr_label);
+  }
+
+  return [blocks, label_order];
+};
 
 /*
     Generate an adjacency list mapping labels of basic blocks to their neighboring blocks
