@@ -111,9 +111,6 @@ function getsAllDominators(tree : graph, g : [graph, string]) {
     for (const t of cfg.keys()) {
       // f dominates t <=> t is a descendent of f in the dominator tree
       let doesdom = dom(cfg, entry, f, t);
-      console.log((f + " dominates " + t), doesdom);
-      console.log("hello!");
-      console.log(f, t, getDominated(tree, f).includes(t));
       assert(dom(cfg, entry, f, t)  == getDominated(tree, f).includes(t));
     }
   }
@@ -179,7 +176,6 @@ for await (const entry of Deno.readDir("test")) {
       const fileContent = await Deno.readTextFile(`test/${entry.name}`);
       const cfgs = await CFGs(fileContent);
       const trees = main(cfgs, "tree");
-      console.log(cfgs);
 
       for (const lbl of Object.keys(cfgs)) {
         let tree = trees[lbl];
@@ -190,9 +186,14 @@ for await (const entry of Deno.readDir("test")) {
     Deno.test(`Testing domination frontier for file: ${entry.name}`, async () => {
       const fileContent = await Deno.readTextFile(`test/${entry.name}`);
       const cfgs = await CFGs(fileContent);
+      const trees = main(cfgs, "tree");
       const frontiers = main(cfgs, "front");
-      console.log(cfgs);
-      assertExists(cfgs);
+
+      // for (const lbl of Object.keys(cfgs)) {
+      //   let tree = trees[lbl];
+      //   let frontier = frontiers[lbl];
+      //   verifyDominanceFrontier(tree, cfgs[lbl], frontier);
+      // }
     });
   }
 }

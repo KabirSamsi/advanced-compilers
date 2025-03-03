@@ -29,6 +29,6 @@ deno test --allow-read --allow-run
 
 ## Links
 
-Writeup: 
+Writeup: https://github.com/sampsyo/cs6120/discussions/453#discussioncomment-12369260 
 
 Tasks: https://www.cs.cornell.edu/courses/cs6120/2025sp/lesson/5//#tasks
