@@ -150,9 +150,10 @@ const generateCFG = (blocks: blockList, labels: string[]): [graph, string] => {
       i += 1;
     }
     graph.set("entry" + i, [blocks.keys().toArray()[0] || ""]);
+    return [graph, "entry" + i];
+  } else {
+    return [graph, blocks.keys().toArray()[0] || ""];
   }
-
-  return [graph, blocks.keys().toArray()[0] || ""];
 };
 
 export const CFGs = async (brildata: string) => {

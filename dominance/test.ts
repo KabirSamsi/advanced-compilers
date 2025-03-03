@@ -2,6 +2,7 @@ import { assertExists } from "@std/assert";
 import {Block, brilInstruction, CFGs, graph, pred} from "./util.ts";
 import main from "./main.ts";
 import { assertFalse } from "@std/assert/false";
+import { assert } from "@std/assert";
 
 /* Recursively compute all children of a node in the dominator tree
 * @param tree – The dominator tree
@@ -49,32 +50,55 @@ function isTree(tree : graph, edges : Array<[string, string]>) : boolean {
 
 /* Check if a dominates b in the cfg
 * @param cfg – The Control-Flow Graph
-* @param a – Intermediary node who should dominate b
+* @param a – Entry node
 * @param b – Destination node
-* @param visited - All nodes who have been visited thus far
-* @param path – All nodes along the current path
 */
 function dom(
     cfg : graph,
+    entry : string,
     a : string,
     b : string,
-    visited : Set<string>,
-    path : Array<string>
-)  {
-  if (path[path.length-1]! == b) {
-    return (path.includes(a));
-  }
+) : boolean  {
 
   if (a == b) return true;
-  for (let neighbor of cfg.get(path[path.length-1]!)!) {
-    if (!visited.has(neighbor)) {
-      visited.add(neighbor);
-      path.push(neighbor);
-      if (!dom(cfg, a, b, visited, path)) {
-        return false;
+
+  // Check that it's possible to reach b via a
+  let reachable : boolean = false;
+  let queue : Array<string> = [entry];
+  let visited : Set<string> = new Set([entry]);
+  while (queue.length > 0) {
+    let front : string = queue.shift()!;
+    if (front == b) {
+      reachable = true;
+      break;
+    }
+    for (let neighbor of cfg.get(front)!) {
+      if (!visited.has(neighbor)) {
+        visited.add(neighbor);
+        queue.push(neighbor);
       }
     }
   }
+
+  if (!reachable) return false;
+  // Since it was possible to reach b, all paths through the entry are valid
+  if (a == entry) return true;
+
+  // Check that removing a from the graph makes it impossible to reach b
+  queue = [entry];
+  visited = new Set([entry, a]);
+  while (queue.length > 0) {
+    let front : string = queue.shift()!;
+    if (front == b) return false;
+    for (let neighbor of cfg.get(front)!) {
+      if (!visited.has(neighbor)) {
+        visited.add(neighbor);
+        queue.push(neighbor);
+      }
+    }
+  }
+
+  return true;
 }
 
 /* Verify that a dominator tree is able to compute all dominators in a graph
@@ -86,8 +110,11 @@ function getsAllDominators(tree : graph, g : [graph, string]) {
   for (const f of cfg.keys()) {
     for (const t of cfg.keys()) {
       // f dominates t <=> t is a descendent of f in the dominator tree
-      assertFalse(dom(cfg, f, t, new Set(), [entry]) && !getDominated(tree, f).includes(t));
-      assertFalse(!dom(cfg, f, t, new Set(), [entry]) && getDominated(tree, f).includes(t));
+      let doesdom = dom(cfg, entry, f, t);
+      console.log((f + " dominates " + t), doesdom);
+      console.log("hello!");
+      console.log(f, t, getDominated(tree, f).includes(t));
+      assert(dom(cfg, entry, f, t)  == getDominated(tree, f).includes(t));
     }
   }
 
@@ -148,12 +175,22 @@ function verifyDominanceFrontier(tree : graph, g : [graph, string], frontier : g
 
 for await (const entry of Deno.readDir("test")) {
   if (entry.isFile && entry.name.endsWith(".bril")) {
-    Deno.test(`Testing file: ${entry.name}`, async () => {
+    Deno.test(`Testing dominators/dominator tree for file: ${entry.name}`, async () => {
       const fileContent = await Deno.readTextFile(`test/${entry.name}`);
       const cfgs = await CFGs(fileContent);
-      const r1 = main(cfgs, "dom");
-      const r3 = main(cfgs, "tree");
-      const r2 = main(cfgs, "front");
+      const trees = main(cfgs, "tree");
+      console.log(cfgs);
+
+      for (const lbl of Object.keys(cfgs)) {
+        let tree = trees[lbl];
+        getsAllDominators(tree, cfgs[lbl]);
+      }
+    });
+
+    Deno.test(`Testing domination frontier for file: ${entry.name}`, async () => {
+      const fileContent = await Deno.readTextFile(`test/${entry.name}`);
+      const cfgs = await CFGs(fileContent);
+      const frontiers = main(cfgs, "front");
       console.log(cfgs);
       assertExists(cfgs);
     });
