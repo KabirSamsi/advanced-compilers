@@ -25,15 +25,10 @@ brench brench.toml
 
 ### ~~Turnt~~
 
-Actually not sure if this will be useful... maybe let's just do brench but use the ssa bril programs as test cases.
-
-
-We use turnt to verify output of each against the bril repo. We test both into SSA and out of SSA (round trip).
-
+We use turnt to verify our programs are SSA.
 
 ```shell
 turnt ssa/*.bril
-turnt ssa_out/*.bril
 ```
 
 ## Links
