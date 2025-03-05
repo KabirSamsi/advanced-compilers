@@ -5,13 +5,13 @@ We again use Deno. You can install it [here](https://docs.deno.com/runtime/getti
 Example run for main. To preserve phi nodes (only go into SSA), include the `phi` argument.
 
 ```shell
-deno --allow-run main.ts < ssa/if.bril phi
+deno --allow-run main.ts < test/if.bril phi
 ```
 
 To go out of SSA, don't include any arguments.
 
 ```shell
-deno --allow-run main.ts < ssa/if.bril
+deno --allow-run main.ts < test/if.bril
 ```
 
 ## Test
@@ -23,12 +23,12 @@ We use brench to verify correctness and evaluate performance across the [bril be
 brench brench.toml
 ```
 
-### ~~Turnt~~
+### Turnt
 
-We use turnt to verify our programs are SSA.
+We use turnt to verify our outputs are SSA with the `is_ssa.py` python script.
 
 ```shell
-turnt ssa/*.bril
+turnt test/*.bril
 ```
 
 ## Links

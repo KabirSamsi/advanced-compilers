@@ -1,1 +1,0 @@
-command = "bril2json < {filename} | deno ../main.ts | python is_ssa.py"
