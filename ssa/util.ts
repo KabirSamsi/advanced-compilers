@@ -21,11 +21,67 @@ export type brilFunction = {
 // Other auxiliary types
 export type brilProgram = { functions?: brilFunction[] };
 export type blockList = Map<string, brilInstruction[]>;
-export type graph = Map<string, string[]>;
-export type Block = string;
+export type env = Map<string, string[]>;
+
+export class Graph {
+  private vertices: Set<string>;
+  private edges: Map<string, string[]>;
+
+  constructor(initialVertices: string[]) {
+    this.vertices = new Set(initialVertices);
+    this.edges = new Map(initialVertices.map((v) => [v, []]));
+  }
+
+  addEdge(from: string, to: string) {
+    if (!this.vertices.has(from)) {
+      this.vertices.add(from);
+      this.edges.set(from, []);
+    }
+    if (!this.vertices.has(to)) {
+      this.vertices.add(to);
+      this.edges.set(to, []);
+    }
+    this.edges.get(from)!.push(to);
+  }
+
+  getVertices() {
+    return [...this.vertices];
+  }
+
+  successors(vertex: string) {
+    return this.edges.get(vertex)!;
+  }
+
+  predecessors(vertex: string): string[] {
+    const preds: string[] = [];
+    for (const [v, neighbors] of this.edges) {
+      if (neighbors.includes(vertex)) {
+        preds.push(v);
+      }
+    }
+    return preds;
+  }
+
+  public toSortedJSON() {
+    const sortedVertices = Array.from(this.vertices).sort();
+    const sortedEdges: { [key: string]: string[] } = {};
+    Array.from(this.edges.keys())
+      .sort()
+      .forEach((key) => {
+        sortedEdges[key] = this.edges.get(key)!.slice().sort();
+      });
+
+    const result = {
+      vertices: sortedVertices,
+      edges: sortedEdges,
+    };
+
+    return JSON.stringify(result, null, 2);
+  }
+}
 
 /* Convert Bril text programs into JSON representation using bril2json */
-const runBril2Json = async (datastring: string): Promise<string> => {
+export const runBril2Json = async (datastring: string): Promise<string> => {
   const process = new Deno.Command("bril2json", {
     stdin: "piped",
     stdout: "piped",
@@ -47,16 +103,38 @@ const runBril2Json = async (datastring: string): Promise<string> => {
   return new TextDecoder().decode(stdout);
 };
 
+/* Convert Bril JSON programs into text representation */
+export const runBril2Txt = async (program: brilProgram): Promise<string> => {
+  const process = new Deno.Command("bril2txt", {
+    stdin: "piped",
+    stdout: "piped",
+    stderr: "piped",
+  });
+
+  const child = process.spawn();
+  const writer = child.stdin.getWriter();
+  await writer.write(new TextEncoder().encode(JSON.stringify(program)));
+  await writer.close();
+
+  const { stdout, stderr } = await child.output();
+
+  if (stderr.length > 0) {
+    console.error("Error running bril2json:", new TextDecoder().decode(stderr));
+    Deno.exit(1);
+  }
+
+  return new TextDecoder().decode(stdout);
+};
 /*
     Generate a series of basic blocks from a given instructions, and ordering of labels.
     @param instrs – The set of initial, unblocked instructions.
     @return – A series of blocks marked with their corresponding labels, along with an ordering of labels.
 */
-const basicBlocks = (
+export const basicBlocks = (
   instrs: Array<brilInstruction>,
 ): [Map<string, Array<brilInstruction>>, Array<string>] => {
   // Store all labeled blocks
-  const blocks: Map<string, brilInstruction[]> = new Map<
+  let blocks: Map<string, brilInstruction[]> = new Map<
     string,
     Array<brilInstruction>
   >();
@@ -110,6 +188,21 @@ const basicBlocks = (
     label_order.push(curr_label);
   }
 
+  const entryBlock = label_order[0];
+  const isEntryTargeted = blocks.entries().some(([_, insns]) => {
+    return insns.at(-1)?.labels?.includes(entryBlock);
+  });
+  if (isEntryTargeted) {
+    let i: number = 1;
+    while (blocks.has("entry" + i)) i += 1;
+    const newEntry = "entry" + i;
+    const oldBlocks = blocks;
+    blocks = new Map<string, brilInstruction[]>();
+    blocks.set(newEntry, []);
+    for (const [k, v] of oldBlocks) blocks.set(k, v);
+    label_order.unshift(newEntry);
+  }
+
   return [blocks, label_order];
 };
 
@@ -119,41 +212,40 @@ const basicBlocks = (
     @param labels – The set of block labels
     @return – A graph representing the control-flow graph of the function
 */
-const generateCFG = (blocks: blockList, labels: string[]): [graph, string] => {
-  const graph: graph = new Map();
+export const generateCFG = (
+  blocks: blockList,
+  labels: string[],
+): Graph => {
+  const g = new Graph(labels);
   for (const [label, insns] of blocks) {
-    if (insns.length > 0 && insns[insns.length - 1].labels) {
-      const tail = insns[insns.length - 1].labels || [];
-      graph.set(label, tail);
+    const finalLabels = insns.at(-1)?.labels;
+    if (finalLabels) {
+      finalLabels.forEach((succ) => {
+        g.addEdge(label, succ);
+      });
     } else {
       const idx = labels.indexOf(label);
       if (idx != -1 && idx != labels.length - 1) {
-        graph.set(label, [labels[idx + 1]]);
-      } else {
-        graph.set(label, []);
+        g.addEdge(label, labels[idx + 1]);
       }
     }
   }
 
-  /* If the first block has no in-edges, don't do anything.
-    If there are, then add a fresh entry block pointing to the actual first element. */
-  let into_first : boolean = false;
-  for (let node of graph.keys()) {
-    if (graph.get(node)!.includes(blocks.keys().toArray()[0])) {
-      into_first = true;
-    }
-  }
-
-  if (into_first) {
-    let i : number = 1;
-    while (graph.has("entry" + i)) {
-      i += 1;
-    }
-    graph.set("entry" + i, [blocks.keys().toArray()[0] || ""]);
-    return [graph, "entry" + i];
-  } else {
-    return [graph, blocks.keys().toArray()[0] || ""];
-  }
+  // /* If the first block has no in-edges, don't do anything.
+  //   If there are, then add a fresh entry block pointing to the actual first element. */
+  // let into_first: boolean = false;
+  // for (let node of g.getVertices()) {
+  //   if (g.successors(node)!.includes(blocks.keys().toArray()[0])) {
+  //     into_first = true;
+  //   }
+  // }
+  //
+  // if (into_first) {
+  //   let i: number = 1;
+  //   while (g.getVertices().includes("entry" + i)) i += 1;
+  //   g.addEdge("entry" + i, blocks.keys().toArray()[0] || "")
+  // }
+  return g;
 };
 
 export const CFGs = async (brildata: string) => {
@@ -165,35 +257,18 @@ export const CFGs = async (brildata: string) => {
 
   const data: brilProgram = JSON.parse(brildata);
 
-  const ret: Record<string, [graph, string]> = {};
+  const ret: Record<string, Graph> = {};
   for (const fn of data.functions || []) {
     const [blocks, labelOrdering] = basicBlocks(fn.instrs ?? []);
-    const [graph, entry] = generateCFG(blocks, labelOrdering);
-    ret[fn.name!] = [graph, entry];
+    ret[fn.name!] = generateCFG(blocks, labelOrdering);
   }
   return ret;
 };
 
-/* Extract successors of a block (indexed by label) in a CFG. */
-const succ = (adj: graph, node: string): string[] => {
-  return adj.get(node) || [];
-};
-
-/* Extract predecessors of a block (indexed by label) in a CFG. */
-export const pred = (adj: graph, node: string): string[] => {
-  const predecessors: string[] = [];
-  for (const neighbor of adj.keys()) {
-    if ((adj.get(neighbor) || []).includes(node)) {
-      predecessors.push(neighbor);
-    }
-  }
-  return predecessors;
-};
-
 export const readStdin = async (): Promise<string> => {
   const stdin = Deno.stdin.readable
-      .pipeThrough(new TextDecoderStream())
-      .getReader();
+    .pipeThrough(new TextDecoderStream())
+    .getReader();
 
   let datastring = "";
   while (true) {
@@ -202,24 +277,6 @@ export const readStdin = async (): Promise<string> => {
     datastring += value;
   }
   return datastring.trim();
-};
-
-export const prettyPrint = (map: Map<any, any>) => {
-  const obj = Object.fromEntries(
-      Array.from(
-          map,
-          ([key, valueSet]) => [key, Array.from(valueSet).sort()],
-      ),
-  );
-
-  const sortedObj = Object.keys(obj)
-      .sort()
-      .reduce((acc, key) => {
-        acc[key] = obj[key];
-        return acc;
-      }, {} as { [key: string]: any });
-
-  console.log(JSON.stringify(sortedObj, null, 2));
 };
 
 export const bigIntersection = <T>(sets: Set<T>[]): Set<T> => {
@@ -239,11 +296,41 @@ export const setEquals = <T>(setA: Set<T>, setB: Set<T>): boolean => {
   return true;
 };
 
-export const mapInv = (map: Map<string, Set<string>>): Map<string, Set<string>> => {
+// Get all variable names defined in a Bril program
+const getAllVars = (blocks: blockList): string[] => {
+  return [];
+};
+
+// Map all defined variables to the blocks where they are written to
+const defs = (blocks: blockList): Map<string, blockList> => {
+  return new Map();
+};
+
+export const mapInv = (
+  map: Map<string, Set<string>>,
+): Map<string, Set<string>> => {
   const out = new Map<string, Set<string>>();
   for (const key of map.keys()) out.set(key, new Set());
   for (const [node, successors] of map.entries()) {
     for (const s of successors) out.get(s)!.add(node);
   }
   return out;
+};
+
+export const prettyPrint = (map: Map<any, any>) => {
+  const obj = Object.fromEntries(
+      Array.from(
+          map,
+          ([key, valueSet]) => [key, Array.from(valueSet).sort()],
+      ),
+  );
+
+  const sortedObj = Object.keys(obj)
+      .sort()
+      .reduce((acc, key) => {
+        acc[key] = obj[key];
+        return acc;
+      }, {} as { [key: string]: any });
+
+  console.log(JSON.stringify(sortedObj, null, 2));
 };
