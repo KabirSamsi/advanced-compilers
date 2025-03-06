@@ -30,6 +30,110 @@ const defSources = (blocks: Map<string, brilInstruction[]>) => {
   return map;
 };
 
+/* Count total number of predecessors of a vertex in a dominance frontier */
+const predsDominanceFrontier = (frontier : Map<string, string[]>, vertex : string) : number => {
+  let total : number = 0;
+  for (const [node, neigbors] of frontier) {
+    if (neigbors.includes(vertex)) {
+      total += 1;
+    }
+  }
+  return total;
+}
+
+/*
+  Returns a set of all variables defined in a Bril function over a sriesseries of basic blocks
+  * @param blocks basic blocks
+*/
+const findAllVars = (blocks : Map<string, brilInstruction[]>) : Set<string> => {
+  const vars  = new Set<string>();
+  for (const [label, insns] of blocks) {
+    for (const insn of insns) {
+      if (insn.dest) {
+        vars.add(insn.dest);
+      }
+    }
+  }
+  return vars;
+}
+
+/*
+  Insert Phi nodes using the Dominance Frontier
+*/
+const insertPhi = (blocks : Map<string, brilInstruction[]>, frontier: Map<string, string[]>) : Map<string, brilInstruction[]> => {
+  const vars : Set<string> = findAllVars(blocks);
+  const defs : Map<string, Set<string>> = defSources(blocks);
+  const addedPhi : Set<string> = new Set<string>();
+
+  for (const variable of vars) {
+    for (const def of defs.get(variable)!) {
+      for (const lbl of frontier.get(def)!) {
+        if (!addedPhi.has(lbl)) {
+          blocks.get(lbl)!.unshift({
+            op: "phi", dest: variable,
+            args : Array.from({length : predsDominanceFrontier(frontier, variable)}, () => variable)
+          });
+        }
+
+        if (!defs.get(variable)!.has(lbl)) {
+          const newDefs = defs.get(variable)!;
+          newDefs.add(lbl);
+          defs.set(variable, newDefs);
+        }
+      }
+    }
+  }
+  return blocks;
+};
+
+/*
+* Rename all variables following insertion of phi nodes
+*/
+const rename = (blocks : Map<string, brilInstruction[]>, blockname: string, cfg : Graph, tree : Map<string, string[]>) => {
+  const stacks = new Map<string, Array<string>>();
+
+  for (const instr of blocks.get(blockname)!) {
+    instr.args = instr.args?.map((v) => {
+      if (stacks.get(v)) {
+        return stacks.get(v)![0];
+      } else {
+        return v;
+      }
+    });
+    instr.dest = instr.dest + "_" + blockname;
+    let newArr = stacks.get(instr.dest)!;
+    newArr.unshift(instr.dest + "_" + blockname);
+    stacks.set(instr.dest, newArr);
+
+    const successors = cfg.successors(blockname);
+    for (let succ of successors) {
+      for (let insn of blocks.get(succ)!) {
+        if (insn.op && insn.op == "phi" && insn.args) {
+          let replacements : string[] = [];
+          for (let arg of insn.args) {
+            replacements.push(stacks.get(arg)![0]);
+          }
+          insn.args = replacements;
+        }
+      }
+    }
+
+    for (let child of tree.get(blockname)!) {
+      rename(blocks, child, cfg, tree);
+    }
+  }
+};
+
+/*
+* Perform translation into SSA
+*/
+const intoSSA = (blocks : Map<string, brilInstruction[]>, frontier : Map<string, string[]>, cfg : Graph, tree : Map<string, string[]>) => {
+  insertPhi(blocks, frontier);
+  for (let [name, _] of blocks) {
+    rename(blocks, name, cfg, tree);
+  }
+}
+
 const insertSets = (block: brilInstruction[]): brilInstruction[] => {
   let updatedBlock: brilInstruction[] = [];
   for (const insn of block) {
@@ -76,13 +180,9 @@ const main = async (stdin: string, preservePhiNodes: boolean) => {
         Array<string>,
       ] = basicBlocks(fn.instrs);
       const cfg: Graph = generateCFG(blocks, labelOrdering);
-      const domTree = dominanceFrontier(cfg);
+      const frontier = dominanceFrontier(cfg);
       const definitions = defSources(blocks);
       let shadow: env = new Map();
-
-      /*
-       * Add in all set nodes in one pass through each basic block; updated shadow environment
-       */
 
       // Out of SSA from Pizlo’s Upsilon/Phi Variant
       if (!preservePhiNodes) {
