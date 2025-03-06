@@ -10,7 +10,7 @@ import {
   runBril2Json,
   runBril2Txt,
 } from "./util.ts";
-import { dominanceFrontier } from "./dominance.ts";
+import {dominanceFrontier, dominanceTree} from "./dominance.ts";
 
 /**
  * Returns a map from each defined variable in a function to the blocks that defined it
@@ -181,9 +181,8 @@ const main = async (stdin: string, preservePhiNodes: boolean) => {
       ] = basicBlocks(fn.instrs);
       const cfg: Graph = generateCFG(blocks, labelOrdering);
       const frontier = dominanceFrontier(cfg);
-      const definitions = defSources(blocks);
-      let shadow: env = new Map();
-
+      const tree = dominanceTree(cfg);
+      intoSSA(blocks,frontier,cfg,tree)
       // Out of SSA from Pizlo’s Upsilon/Phi Variant
       if (!preservePhiNodes) {
         outOfSSA(blocks);
@@ -195,7 +194,7 @@ const main = async (stdin: string, preservePhiNodes: boolean) => {
   // for JSON output
   // console.log(JSON.stringify(program,null, 2));
   const text = await runBril2Txt(program);
-  // console.log(text);
+  console.log(text);
 };
 
 if (import.meta.main) {
