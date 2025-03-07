@@ -10,7 +10,7 @@ import {
   runBril2Json,
   runBril2Txt,
 } from "./util.ts";
-import {dominanceFrontier, dominanceTree} from "./dominance.ts";
+import { dominanceFrontier, dominanceTree } from "./dominance.ts";
 
 /**
  * Returns a map from each defined variable in a function to the blocks that defined it
@@ -31,22 +31,25 @@ const defSources = (blocks: Map<string, brilInstruction[]>) => {
 };
 
 /* Count total number of predecessors of a vertex in a dominance frontier */
-const predsDominanceFrontier = (frontier : Map<string, string[]>, vertex : string) : number => {
-  let total : number = 0;
+const predsDominanceFrontier = (
+  frontier: Map<string, string[]>,
+  vertex: string,
+): number => {
+  let total: number = 0;
   for (const [node, neigbors] of frontier) {
     if (neigbors.includes(vertex)) {
       total += 1;
     }
   }
   return total;
-}
+};
 
 /*
   Returns a set of all variables defined in a Bril function over a sriesseries of basic blocks
   * @param blocks basic blocks
 */
-const findAllVars = (blocks : Map<string, brilInstruction[]>) : Set<string> => {
-  const vars  = new Set<string>();
+const findAllVars = (blocks: Map<string, brilInstruction[]>): Set<string> => {
+  const vars = new Set<string>();
   for (const [label, insns] of blocks) {
     for (const insn of insns) {
       if (insn.dest) {
@@ -55,23 +58,54 @@ const findAllVars = (blocks : Map<string, brilInstruction[]>) : Set<string> => {
     }
   }
   return vars;
-}
+};
 
 /*
   Insert Phi nodes using the Dominance Frontier
 */
-const insertPhi = (blocks : Map<string, brilInstruction[]>, frontier: Map<string, string[]>) : Map<string, brilInstruction[]> => {
-  const vars : Set<string> = findAllVars(blocks);
-  const defs : Map<string, Set<string>> = defSources(blocks);
-  const addedPhi : Set<string> = new Set<string>();
+const insertPhi = (
+  blocks: Map<string, brilInstruction[]>,
+  cfg: Graph,
+  frontier: Map<string, string[]>,
+): Map<string, brilInstruction[]> => {
+  //         {
+  //           "args": [
+  //             "a.2",
+  //             "a.3"
+  //           ],
+  //           "dest": "a.1",
+  //           "labels": [
+  //             "left",
+  //             "right"
+  //           ],
+  //           "op": "phi",
+  //           "type": "int"
+  //         },
+
+  const vars: Set<string> = findAllVars(blocks);
+  const defs: Map<string, Set<string>> = defSources(blocks);
+  const addedPhi: Set<string> = new Set<string>();
 
   for (const variable of vars) {
     for (const def of defs.get(variable)!) {
+      // Iterate through each block in dominance frontier
       for (const lbl of frontier.get(def)!) {
         if (!addedPhi.has(lbl)) {
+          addedPhi.add(lbl);
+
+          // Build up phi node with proper data
+          let newArgs = [];
+          let newLabels = [];
+          for (let pred of cfg.predecessors(lbl)) {
+            newLabels.push(pred);
+            newArgs.push(variable);
+          }
+
           blocks.get(lbl)!.unshift({
-            op: "phi", dest: variable,
-            args : Array.from({length : predsDominanceFrontier(frontier, variable)}, () => variable)
+            op: "phi",
+            dest: variable,
+            args: newArgs,
+            labels: newLabels,
           });
         }
 
@@ -87,11 +121,15 @@ const insertPhi = (blocks : Map<string, brilInstruction[]>, frontier: Map<string
 };
 
 /*
-* Rename all variables following insertion of phi nodes
-*/
-const rename = (blocks : Map<string, brilInstruction[]>, blockname: string, cfg : Graph, tree : Map<string, string[]>) => {
-  const stacks = new Map<string, Array<string>>();
-
+ * Rename all variables following insertion of phi nodes
+ */
+const rename = (
+  stacks: Map<string, string[]>,
+  blocks: Map<string, brilInstruction[]>,
+  blockname: string,
+  cfg: Graph,
+  tree: Map<string, string[]>,
+) => {
   for (const instr of blocks.get(blockname)!) {
     instr.args = instr.args?.map((v) => {
       if (stacks.get(v)) {
@@ -101,38 +139,45 @@ const rename = (blocks : Map<string, brilInstruction[]>, blockname: string, cfg 
       }
     });
     instr.dest = instr.dest + "_" + blockname;
+    console.log(stacks);
     let newArr = stacks.get(instr.dest)!;
     newArr.unshift(instr.dest + "_" + blockname);
     stacks.set(instr.dest, newArr);
+  }
 
-    const successors = cfg.successors(blockname);
-    for (let succ of successors) {
-      for (let insn of blocks.get(succ)!) {
-        if (insn.op && insn.op == "phi" && insn.args) {
-          let replacements : string[] = [];
-          for (let arg of insn.args) {
-            replacements.push(stacks.get(arg)![0]);
-          }
-          insn.args = replacements;
+  const successors = cfg.successors(blockname);
+  for (let succ of successors) {
+    for (let insn of blocks.get(succ)!) {
+      if (insn.op && insn.op == "phi" && insn.args) {
+        let replacements: string[] = [];
+        for (let arg of insn.args) {
+          replacements.push(stacks.get(arg)![0]);
         }
+        insn.args = replacements;
       }
     }
+  }
 
-    for (let child of tree.get(blockname)!) {
-      rename(blocks, child, cfg, tree);
-    }
+  for (let child of tree.get(blockname)!) {
+    rename(stacks, blocks, child, cfg, tree);
   }
 };
 
 /*
-* Perform translation into SSA
-*/
-const intoSSA = (blocks : Map<string, brilInstruction[]>, frontier : Map<string, string[]>, cfg : Graph, tree : Map<string, string[]>) => {
-  insertPhi(blocks, frontier);
-  for (let [name, _] of blocks) {
-    rename(blocks, name, cfg, tree);
+ * Perform translation into SSA
+ */
+const intoSSA = (
+  blocks: Map<string, brilInstruction[]>,
+  frontier: Map<string, string[]>,
+  cfg: Graph,
+  tree: Map<string, string[]>,
+) => {
+  insertPhi(blocks, cfg, frontier);
+  const stacks = new Map<string, Array<string>>();
+  if (blocks.size > 0) {
+    rename(stacks, blocks, [...blocks][0][0], cfg, tree);
   }
-}
+};
 
 const insertSets = (block: brilInstruction[]): brilInstruction[] => {
   let updatedBlock: brilInstruction[] = [];
@@ -146,22 +191,38 @@ const insertSets = (block: brilInstruction[]): brilInstruction[] => {
 };
 
 const outOfSSA = (blocks: Map<string, brilInstruction[]>) => {
-  blocks.forEach((block, label, map) => {
-    const newBlock = block
-        .filter(insn => insn.op !== "get")
-        .map(insn => {
-          if (insn.op === "set") {
-            const [dest, src] = insn.args!;
-            return {
-              dest,
-              args: [src],
-              op: "id",
-              type: undefined,
-            };
-          }
-          return insn;
-        });
-    map.set(label, newBlock);
+  //         {
+  //           "args": [
+  //             "a.2",
+  //             "a.3"
+  //           ],
+  //           "dest": "a.1",
+  //           "labels": [
+  //             "left",
+  //             "right"
+  //           ],
+  //           "op": "phi",
+  //           "type": "int"
+  //         },
+  blocks.forEach((block, blockName) => {
+    const newBlock = block.filter((insn) => {
+      if (insn?.op === "phi") {
+        // side effect of filter LOL
+        const args = insn.args ?? [];
+        const labels = insn.labels ?? [];
+        for (let i = 0; i < Math.min(args.length, labels.length); i++) {
+          blocks.get(labels[i])!.push({
+            op: "id",
+            dest: insn.dest,
+            args: [args[i]],
+          });
+        }
+        return false;
+      }
+      return true;
+    });
+    // Update the block in the map with the filtered instructions
+    blocks.set(blockName, newBlock);
   });
 };
 
@@ -182,12 +243,15 @@ const main = async (stdin: string, preservePhiNodes: boolean) => {
       const cfg: Graph = generateCFG(blocks, labelOrdering);
       const frontier = dominanceFrontier(cfg);
       const tree = dominanceTree(cfg);
-      intoSSA(blocks,frontier,cfg,tree)
-      // Out of SSA from Pizlo’s Upsilon/Phi Variant
-      if (!preservePhiNodes) {
-        outOfSSA(blocks);
-      }
-      fn.instrs = Array.from(blocks.values()).flat();
+
+      // insertPhi(blocks, cfg, frontier);
+
+      // intoSSA(blocks,frontier,cfg,tree)
+      if (!preservePhiNodes) outOfSSA(blocks);
+
+      fn.instrs = Array.from(blocks.entries()).flatMap((
+        [label, instrs],
+      ): brilInstruction[] => [{ label: label }, ...instrs]);
     }
   }
 

@@ -192,6 +192,7 @@ export const basicBlocks = (
   const isEntryTargeted = blocks.entries().some(([_, insns]) => {
     return insns.at(-1)?.labels?.includes(entryBlock);
   });
+  // TODO kabir i guess check this
   if (isEntryTargeted) {
     let i: number = 1;
     while (blocks.has("entry" + i)) i += 1;
@@ -203,6 +204,7 @@ export const basicBlocks = (
     label_order.unshift(newEntry);
   }
 
+  // TODO why do we have a dangling lbl0?
   return [blocks, label_order];
 };
 
