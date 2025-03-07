@@ -109,6 +109,7 @@ const insertPhi = (
           });
         }
 
+        // Add new block to defs
         if (!defs.get(variable)!.has(lbl)) {
           const newDefs = defs.get(variable)!;
           newDefs.add(lbl);

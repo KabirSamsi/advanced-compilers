@@ -298,16 +298,6 @@ export const setEquals = <T>(setA: Set<T>, setB: Set<T>): boolean => {
   return true;
 };
 
-// Get all variable names defined in a Bril program
-const getAllVars = (blocks: blockList): string[] => {
-  return [];
-};
-
-// Map all defined variables to the blocks where they are written to
-const defs = (blocks: blockList): Map<string, blockList> => {
-  return new Map();
-};
-
 export const mapInv = (
   map: Map<string, Set<string>>,
 ): Map<string, Set<string>> => {
