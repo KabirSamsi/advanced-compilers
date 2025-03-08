@@ -1,4 +1,8 @@
-import {CFGs, readStdin, mapInv, setEquals, bigIntersection, Graph, prettyPrint} from "./util.ts";
+import {CFGs} from "./bbcfg.ts";
+import {Graph} from "../common/graph.ts";
+
+import {prettyPrint, readStdin} from "../common/commandLine.ts";
+import {bigIntersection, mapInv, setEquals} from "../common/dataStructureUtils.ts";
 
 const computeDominators = (cfg : Graph) => {
   const vertices = cfg.getVertices()

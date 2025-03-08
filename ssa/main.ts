@@ -1,17 +1,14 @@
 import {
-  basicBlocks, BlockMap,
-  brilInstruction,
-  brilProgram,
-  env,
-  generateCFG,
-  Graph,
-  prettyPrint,
-  readStdin,
-  runBril2Json,
-  runBril2Txt,
-} from "./util.ts";
+  basicBlocks, generateCFG,
+
+
+
+} from "./bbcfg.ts";
+import {BlockMap, brilInstruction, brilProgram} from "../common/looseTypes.ts";
 import { dominanceFrontier, dominanceTree } from "./dominance.ts";
 import {Block} from "../dominance/util.ts";
+import {Graph} from "../common/graph.ts";
+import {prettyPrint, readStdin, runBril2Json, runBril2Txt} from "../common/commandLine.ts";
 
 /**
  * Returns a map from each defined variable in a function to the blocks that defined it
