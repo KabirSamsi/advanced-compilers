@@ -20,7 +20,7 @@ export type brilFunction = {
 
 // Other auxiliary types
 export type brilProgram = { functions?: brilFunction[] };
-export type blockList = Map<string, brilInstruction[]>;
+export type BlockMap = Map<string, brilInstruction[]>;
 export type env = Map<string, string[]>;
 
 export class Graph {
@@ -132,9 +132,9 @@ export const runBril2Txt = async (program: brilProgram): Promise<string> => {
 */
 export const basicBlocks = (
   instrs: Array<brilInstruction>,
-): [Map<string, Array<brilInstruction>>, Array<string>] => {
+): BlockMap => {
   // Store all labeled blocks
-  let blocks: Map<string, brilInstruction[]> = new Map<
+  let blocks: BlockMap = new Map<
     string,
     Array<brilInstruction>
   >();
@@ -151,8 +151,8 @@ export const basicBlocks = (
       if (curr.length > 0) {
         if (curr_label == "") {
           blocks.set("lbl" + label_count, curr);
-          label_count += 1;
           label_order.push("lbl" + label_count);
+          label_count += 1;
         } else {
           blocks.set(curr_label, curr);
           label_order.push(curr_label);
@@ -165,8 +165,8 @@ export const basicBlocks = (
       if (insn.op == "jmp" || insn.op == "br" || insn.op == "ret") {
         if (curr_label == "") {
           blocks.set("lbl" + label_count, curr);
-          label_count += 1;
           label_order.push("lbl" + label_count);
+          label_count += 1;
         } else {
           blocks.set(curr_label, curr);
           label_order.push(curr_label);
@@ -181,8 +181,8 @@ export const basicBlocks = (
 
   if (curr_label == "") {
     blocks.set("lbl" + label_count, curr);
-    label_count += 1;
     label_order.push("lbl" + label_count);
+    label_count += 1;
   } else {
     blocks.set(curr_label, curr);
     label_order.push(curr_label);
@@ -205,7 +205,7 @@ export const basicBlocks = (
   }
 
   // TODO why do we have a dangling lbl0?
-  return [blocks, label_order];
+  return blocks;
 };
 
 /*
@@ -215,9 +215,9 @@ export const basicBlocks = (
     @return – A graph representing the control-flow graph of the function
 */
 export const generateCFG = (
-  blocks: blockList,
-  labels: string[],
+  blocks: BlockMap,
 ): Graph => {
+  const labels = blocks.keys().toArray()
   const g = new Graph(labels);
   for (const [label, insns] of blocks) {
     const finalLabels = insns.at(-1)?.labels;
@@ -261,8 +261,8 @@ export const CFGs = async (brildata: string) => {
 
   const ret: Record<string, Graph> = {};
   for (const fn of data.functions || []) {
-    const [blocks, labelOrdering] = basicBlocks(fn.instrs ?? []);
-    ret[fn.name!] = generateCFG(blocks, labelOrdering);
+    const blocks = basicBlocks(fn.instrs ?? []);
+    ret[fn.name!] = generateCFG(blocks);
   }
   return ret;
 };

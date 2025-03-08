@@ -1,5 +1,5 @@
 import {
-  basicBlocks,
+  basicBlocks, BlockMap,
   brilInstruction,
   brilProgram,
   env,
@@ -11,12 +11,13 @@ import {
   runBril2Txt,
 } from "./util.ts";
 import { dominanceFrontier, dominanceTree } from "./dominance.ts";
+import {Block} from "../dominance/util.ts";
 
 /**
  * Returns a map from each defined variable in a function to the blocks that defined it
  * @param blocks basic blocks
  */
-const defSources = (blocks: Map<string, brilInstruction[]>) => {
+const defSources = (blocks: BlockMap) => {
   const map = new Map<string, Set<string>>();
   for (const [label, insns] of blocks) {
     for (const insn of insns) {
@@ -48,7 +49,7 @@ const predsDominanceFrontier = (
   Returns a set of all variables defined in a Bril function over a sriesseries of basic blocks
   * @param blocks basic blocks
 */
-const findAllVars = (blocks: Map<string, brilInstruction[]>): Set<string> => {
+const findAllVars = (blocks: BlockMap): Set<string> => {
   const vars = new Set<string>();
   for (const [label, insns] of blocks) {
     for (const insn of insns) {
@@ -64,10 +65,10 @@ const findAllVars = (blocks: Map<string, brilInstruction[]>): Set<string> => {
   Insert Phi nodes using the Dominance Frontier
 */
 const insertPhi = (
-  blocks: Map<string, brilInstruction[]>,
+  blocks: BlockMap,
   cfg: Graph,
   frontier: Map<string, string[]>,
-): Map<string, brilInstruction[]> => {
+): BlockMap => {
   //         {
   //           "args": [
   //             "a.2",
@@ -126,7 +127,7 @@ const insertPhi = (
  */
 const rename = (
   stacks: Map<string, string[]>,
-  blocks: Map<string, brilInstruction[]>,
+  blocks: BlockMap,
   blockname: string,
   cfg: Graph,
   tree: Map<string, string[]>,
@@ -168,7 +169,7 @@ const rename = (
  * Perform translation into SSA
  */
 const intoSSA = (
-  blocks: Map<string, brilInstruction[]>,
+  blocks: BlockMap,
   frontier: Map<string, string[]>,
   cfg: Graph,
   tree: Map<string, string[]>,
@@ -191,7 +192,7 @@ const insertSets = (block: brilInstruction[]): brilInstruction[] => {
   return [];
 };
 
-const outOfSSA = (blocks: Map<string, brilInstruction[]>) => {
+const outOfSSA = (blocks: BlockMap) => {
   //         {
   //           "args": [
   //             "a.2",
@@ -237,17 +238,15 @@ const main = async (stdin: string, preservePhiNodes: boolean) => {
 
   for (const fn of program.functions || []) {
     if (fn.instrs) {
-      const [blocks, labelOrdering]: [
-        Map<string, brilInstruction[]>,
-        Array<string>,
-      ] = basicBlocks(fn.instrs);
-      const cfg: Graph = generateCFG(blocks, labelOrdering);
+      const blocks = basicBlocks(fn.instrs);
+      console.log(blocks);
+      const cfg: Graph = generateCFG(blocks);
       const frontier = dominanceFrontier(cfg);
       const tree = dominanceTree(cfg);
 
       // insertPhi(blocks, cfg, frontier);
 
-      // intoSSA(blocks,frontier,cfg,tree)
+      intoSSA(blocks,frontier,cfg,tree)
       if (!preservePhiNodes) outOfSSA(blocks);
 
       fn.instrs = Array.from(blocks.entries()).flatMap((
@@ -259,7 +258,7 @@ const main = async (stdin: string, preservePhiNodes: boolean) => {
   // for JSON output
   // console.log(JSON.stringify(program,null, 2));
   const text = await runBril2Txt(program);
-  console.log(text);
+  // console.log(text);
 };
 
 if (import.meta.main) {
