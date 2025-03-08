@@ -1,7 +1,7 @@
 import main from "./main.ts";
 import { assertFalse } from "@std/assert/false";
 import { assert } from "@std/assert";
-import { CFGs } from "../ssa/bbcfg.ts";
+import { CFGs } from "../common/basicBlockCFG.ts";
 
 type graph = Map<string, string[]>;
 

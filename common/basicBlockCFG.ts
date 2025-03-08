@@ -1,10 +1,10 @@
-import { Graph } from "../common/graph.ts";
-import { runBril2Json } from "../common/commandLine.ts";
+import { Graph } from "./graph.ts";
+import { runBril2Json } from "./commandLine.ts";
 import {
   BlockMap,
   brilInstruction,
   brilProgram,
-} from "../common/looseTypes.ts";
+} from "./looseTypes.ts";
 
 /*
     Generate a series of basic blocks from a given instructions, and ordering of labels.

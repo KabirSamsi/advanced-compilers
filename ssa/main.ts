@@ -1,4 +1,4 @@
-import { basicBlocks, CFGs, generateCFG } from "./bbcfg.ts";
+import { basicBlocks, CFGs, generateCFG } from "../common/basicBlockCFG.ts";
 import {
   BlockMap,
   brilInstruction,

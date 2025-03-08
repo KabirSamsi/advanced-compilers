@@ -1,4 +1,4 @@
-import {CFGs} from "../ssa/bbcfg.ts";
+import {CFGs} from "../common/basicBlockCFG.ts";
 import {Graph} from "../common/graph.ts";
 
 import {prettyPrint, readStdin} from "../common/commandLine.ts";
