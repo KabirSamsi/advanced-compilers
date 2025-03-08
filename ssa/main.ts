@@ -1,12 +1,17 @@
+import { basicBlocks, CFGs, generateCFG } from "./bbcfg.ts";
 import {
-  basicBlocks, generateCFG,
-
-
-} from "./bbcfg.ts";
-import {BlockMap, brilInstruction, brilProgram} from "../common/looseTypes.ts";
+  BlockMap,
+  brilInstruction,
+  brilProgram,
+} from "../common/looseTypes.ts";
 import { dominanceFrontier, dominanceTree } from "../dominance/main.ts";
-import {Graph} from "../common/graph.ts";
-import {prettyPrint, readStdin, runBril2Json, runBril2Txt} from "../common/commandLine.ts";
+import { Graph } from "../common/graph.ts";
+import {
+  prettyPrint,
+  readStdin,
+  runBril2Json,
+  runBril2Txt,
+} from "../common/commandLine.ts";
 
 /**
  * Returns a map from each defined variable in a function to the blocks that defined it
@@ -187,7 +192,7 @@ const insertSets = (block: brilInstruction[]): brilInstruction[] => {
   return [];
 };
 
-const outOfSSA = (blocks: BlockMap) => {
+const leaveSSA = (blocks: BlockMap) => {
   //         {
   //           "args": [
   //             "a.2",
@@ -223,7 +228,7 @@ const outOfSSA = (blocks: BlockMap) => {
   });
 };
 
-const main = async (stdin: string, preservePhiNodes: boolean) => {
+const main = async (stdin: string, intoSSA: boolean, outOfSSA: boolean) => {
   try {
     JSON.parse(stdin);
   } catch {
@@ -239,10 +244,12 @@ const main = async (stdin: string, preservePhiNodes: boolean) => {
       const frontier = dominanceFrontier(cfg);
       const tree = dominanceTree(cfg);
 
-      insertPhi(blocks, cfg, frontier);
+      if (intoSSA) {
+        insertPhi(blocks, cfg, frontier);
+        // intoSSA(blocks,frontier,cfg,tree)
+      }
 
-      // intoSSA(blocks,frontier,cfg,tree)
-      if (!preservePhiNodes) outOfSSA(blocks);
+      if (outOfSSA) leaveSSA(blocks);
 
       fn.instrs = Array.from(blocks.entries()).flatMap((
         [label, instrs],
@@ -258,5 +265,8 @@ const main = async (stdin: string, preservePhiNodes: boolean) => {
 
 if (import.meta.main) {
   const datastring = await readStdin();
-  main(datastring, Deno.args[0] === "phi");
+  let args = Deno.args;
+  if (args.at(0) === "in") main(datastring, true, false);
+  else if (args.at(0) === "out") main(datastring, false, true);
+  else main(datastring, true, true);
 }

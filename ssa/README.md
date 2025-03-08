@@ -2,16 +2,21 @@
 
 We again use Deno. You can install it [here](https://docs.deno.com/runtime/getting_started/installation/).
 
-Example run for main. To preserve phi nodes (only go into SSA), include the `phi` argument.
+You can translate Bril programs into SSA, out of SSA, or both (roundtrip).
 
+Use the `in` argument to only translate into SSA and preserve phi nodes.
 ```shell
-deno --allow-run main.ts < test/if.bril phi
+deno --allow-run main.ts < to_phi_node/loop-branch.bril in
 ```
 
-To go out of SSA, don't include any arguments.
-
+Use the `out` argument to translate an SSA bril program that uses `phi` instructions out of SSA.
 ```shell
-deno --allow-run main.ts < test/if.bril
+deno --allow-run main.ts < to_phi_node/loop-branch.out out
+```
+
+Don't specify any parameters for roundtrip.
+```shell
+deno --allow-run main.ts < test/argwrite.bril
 ```
 
 ## Test
