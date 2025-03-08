@@ -8,14 +8,15 @@ Since we need to evaluate our dataflow analysis, we use turnt.
  turnt df/*.bril
 ```
 
-To run an individual bril program either use 
+To run an individual bril program, specify the desired analysis:
 ```shell
- bril2json < df/cfg.bril | deno main.ts
+deno --allow-run main.ts < df/cond.bril live
 ```
-or we can run it through bril2json for you
-```shell
-deno --allow-run main.ts < df/cfg.bril
-```
+
+We support:
+- Live Variable Analysis (`live`)
+- Reaching Definitions Analysis (`reaching`)
+- Constant Propagation (numbers/booleans) Analysis (`cprop`)
 
 ## Links
 

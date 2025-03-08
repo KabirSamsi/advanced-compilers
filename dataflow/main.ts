@@ -1,31 +1,11 @@
-// Bril instruction type
-type brilInstruction = {
-    label?: string
-    dest?: string
-    op?: string
-    args?: string[],
-    functions?: string[],
-    labels?: string[],
-    value?: any,
-    type?: any
-};
-
-// Bril function type
-type brilFunction = {
-    instrs?: brilInstruction[]
-    name?: string
-    args?: string[],
-    type?: string
-};
-
-// Other auxiliary types
-type brilProgram = {functions?: brilFunction[]};
-type blockList = Map<string, brilInstruction[]>;
-type graph = Map<string, string[]>;
+import {basicBlocks, generateCFG} from "../common/basicBlockCFG.ts";
+import { readStdin, runBril2Json } from "../common/commandLine.ts";
+import {Graph} from "../common/graph.ts";
+import {BlockMap, brilInstruction, brilProgram} from "../common/looseTypes.ts";
 type Block = string;
 
 /* Maps constant-folding opcodes to their relative functions */
-const reduceMap : Map<string, Function> = new Map<string, Function>([
+const reduceMap = new Map<string, Function>([
     ["add", (x : number, y : number) => x+y],
     ["mul", (x : number, y : number) => x*y],
     ["sub", (x : number, y : number) => x-y],
@@ -59,114 +39,8 @@ const unionMap = (s1 : Map<any, any>, s2 : Map<any, any>) : Map<any, any> => {
     return s1;
 }
 
-/*
-    Generate a series of basic blocks from a given instructions, and ordering of labels.
-    @param instrs – The set of initial, unblocked instructions.
-    @return – A series of blocks marked with their corresponding labels, along with an ordering of labels.
-*/
-const basicBlocks = (
-  instrs: Array<brilInstruction>,
-): [Map<string, Array<brilInstruction>>, Array<string>] => {
-  // Store all labeled blocks
-  const blocks: Map<string, brilInstruction[]> = new Map<
-    string,
-    Array<brilInstruction>
-  >();
-  const label_order: string[] = [];
-  let label_count: number = 0;
-
-  // Traverse each block and add it
-  let curr_label: string = "";
-  let curr: Array<brilInstruction> = [];
-  for (const insn of instrs) {
-    // End block if it is a label or a terminator
-
-    if (insn.label) {
-      if (curr.length > 0) {
-        if (curr_label == "") {
-          blocks.set("lbl" + label_count, curr);
-          label_count += 1;
-          label_order.push("lbl" + label_count);
-        } else {
-          blocks.set(curr_label, curr);
-          label_order.push(curr_label);
-        }
-      }
-      curr = [];
-      curr_label = insn.label; // Update new label
-    } else if (insn.op) {
-      curr.push(insn);
-      if (insn.op == "jmp" || insn.op == "br" || insn.op == "ret") {
-        if (curr_label == "") {
-          blocks.set("lbl" + label_count, curr);
-          label_count += 1;
-          label_order.push("lbl" + label_count);
-        } else {
-          blocks.set(curr_label, curr);
-          label_order.push(curr_label);
-        }
-        curr = [];
-        curr_label = ""; // Until we have a new starting label, treat as dead code
-      }
-    } else {
-      curr.push(insn);
-    }
-  }
-
-  if (curr_label == "") {
-    blocks.set("lbl" + label_count, curr);
-    label_count += 1;
-    label_order.push("lbl" + label_count);
-  } else {
-    blocks.set(curr_label, curr);
-    label_order.push(curr_label);
-  }
-
-  return [blocks, label_order];
-};
-
-/*
-    Generate an adjacency list mapping labels of basic blocks to their neighboring blocks
-    @param blocks – The set of basic blocks
-    @param labels – The set of block labels
-    @return – A graph representing the control-flow graph of the function
-*/
-const generateCFG = (blocks : blockList, labels : string[]) : graph => {
-    const graph : graph = new Map();
-    for (const [label, insns] of blocks) {
-        if (insns.length > 0 && insns[insns.length-1].labels) {
-            const tail = insns[insns.length-1].labels || [];
-            graph.set(label, tail);
-        } else {
-            const idx = labels.indexOf(label);
-            if (idx != -1 && idx != labels.length-1) {
-                graph.set(label, [labels[idx+1]]);
-            } else {
-                graph.set(label, []);
-            }
-        }
-    }
-    return graph;
-}
-
-/* Extract successors of a block (indexed by label) in a CFG. */
-const succ = (adj : graph, node : string) : string[] => {
-    return adj.get(node) || [];
-}
-
-/* Extract predecessors of a block (indexed by label) in a CFG. */
-const pred = (adj: graph, node: string): string[] => {
-    const predecessors: string[] = [];
-    for (const neighbor of adj.keys()) {
-        if ((adj.get(neighbor) || []).includes(node)) {
-            predecessors.push(neighbor);
-        }
-    }
-    return predecessors;
-}
-
 /* Implementation of the worklist algorithm. */
-function worklist_forwards<Data>(graph: graph, transfer: (a: Block, b: Data) => Data, merge: (data: Data[]) => Data, init: () => Data): Record<Block, Data>[] {
+function worklist_forwards<Data>(graph: Graph, transfer: (a: Block, b: Data) => Data, merge: (data: Data[]) => Data, init: () => Data): Record<Block, Data>[] {
     /* Pseudocode
         in[entry] = init
         out[*] = init
@@ -182,17 +56,17 @@ function worklist_forwards<Data>(graph: graph, transfer: (a: Block, b: Data) => 
     const ins: Record<Block, Data> = {}
     const outs: Record<Block, Data> = {}
 
-    const worklist: Block[] = [...graph.keys()]
+    const worklist: Block[] = graph.getVertices()
 
     while (worklist.length > 0) {
         const b = worklist.shift()!;
-        const preds = pred(graph, b);
+        const preds = graph.predecessors(b);
         ins[b] = merge(preds.map(p => outs[p] || init()))
         const prevOuts = outs[b]
         outs[b] = transfer(b, ins[b])
         if (JSON.stringify(prevOuts) != JSON.stringify(ins[b])) {
             // TODO
-            worklist.push(...succ(graph, b))
+            worklist.push(...graph.successors(b))
         }
     }
     return [ins, outs]
@@ -200,7 +74,7 @@ function worklist_forwards<Data>(graph: graph, transfer: (a: Block, b: Data) => 
 
 
 /* Implementation of the worklist algorithm, going in reverse order. */
-function worklist_backwards<Data>(graph: graph, transfer: (a: Block, b: Data) => Data, merge: (data: Data[]) => Data, init: () => Data): Record<Block, Data>[] {
+function worklist_backwards<Data>(graph: Graph, transfer: (a: Block, b: Data) => Data, merge: (data: Data[]) => Data, init: () => Data): Record<Block, Data>[] {
     /* Pseudocode
         out[entry] = init
         in[*] = init
@@ -216,24 +90,24 @@ function worklist_backwards<Data>(graph: graph, transfer: (a: Block, b: Data) =>
     const outs: Record<Block, Data> = {}
     const ins: Record<Block, Data> = {}
 
-    const worklist: Block[] = [...graph.keys()]
+    const worklist: Block[] = graph.getVertices()
 
     while (worklist.length > 0) {
         const b = worklist.shift()!;
-        const succs = succ(graph, b);
+        const succs = graph.successors(b);
         outs[b] = merge(succs.map(b => ins[b] || init()))
         const prevIns = ins[b]
         ins[b] = transfer(b, outs[b])
         if (JSON.stringify(prevIns) != JSON.stringify(ins[b])) {
             // TODO
-            worklist.push(...pred(graph, b))
+            worklist.push(...graph.predecessors(b))
         }
     }
     return [ins, outs]
 }
 
 /* Dataflow – Live Variable Analysis */
-const lva = (graph: graph, blocks: blockList) => {
+const lva = (graph: Graph, blocks: BlockMap) => {
     type data = Set<string>; // set of live variables
 
     /* Merge function */
@@ -262,7 +136,7 @@ const lva = (graph: graph, blocks: blockList) => {
 }
 
 /* Dataflow – Reaching Definitions Analysis */
-const reaching = (graph: graph, blocks: blockList) => {
+const reaching = (graph: Graph, blocks: BlockMap) => {
     type data = Set<brilInstruction>;
 
     /* Merge function */
@@ -295,8 +169,8 @@ const reaching = (graph: graph, blocks: blockList) => {
     return worklist_forwards<data>(graph, transfer, merge, () => new Set());
 }
 
-/* Dataflow – Constant Propagation (numbers/booleans) analysis */
-const constantProp = (graph: graph, blocks: blockList) => {
+/* Dataflow – Constant Propagation (numbers/booleans) Analysis */
+const constantProp = (graph: Graph, blocks: BlockMap) => {
     type data = Map<string, number | boolean>;
 
     /* Merge function (union with same key/values) */
@@ -336,44 +210,6 @@ const constantProp = (graph: graph, blocks: blockList) => {
     return worklist_forwards<data>(graph, transfer, merge, () => new Map());
 }
 
-/* Convert Bril text programs into JSON representation using bril2json */
-const runBril2Json = async (datastring: string): Promise<string> => {
-    const process = new Deno.Command("bril2json", {
-        stdin: "piped",
-        stdout: "piped",
-        stderr: "piped",
-    });
-
-    const child = process.spawn();
-    const writer = child.stdin.getWriter();
-    await writer.write(new TextEncoder().encode(datastring));
-    await writer.close();
-
-    const {stdout, stderr} = await child.output();
-
-    if (stderr.length > 0) {
-        console.error("Error running bril2json:", new TextDecoder().decode(stderr));
-        Deno.exit(1);
-    }
-
-    return new TextDecoder().decode(stdout);
-};
-
-/* Read from standard in */
-const readStdin = async (): Promise<string> => {
-    const stdin = Deno.stdin.readable
-        .pipeThrough(new TextDecoderStream())
-        .getReader();
-
-    let datastring = "";
-    while (true) {
-        const {value, done} = await stdin.read();
-        if (done) break;
-        datastring += value;
-    }
-    return datastring.trim();
-};
-
 // deno-lint-ignore no-explicit-any
 const format = (val: any): string => {
     if (val instanceof Set) {
@@ -412,8 +248,8 @@ const main = async () => {
 
     for (const fn of data.functions || []) {
         if (result.functions) {
-            const [blocks, labelOrdering] = basicBlocks(fn.instrs ?? []);
-            const graph = generateCFG(blocks, labelOrdering);
+            const blocks = basicBlocks(fn.instrs ?? [])
+            const graph = generateCFG(blocks);
 
             let analysisResult;
             switch (analysisType) {
