@@ -1,19 +1,11 @@
-import { CFGs, graph, readStdin, mapInv, setEquals, bigIntersection, prettyPrint } from "./util.ts";
+import {CFGs} from "../ssa/bbcfg.ts";
+import {Graph} from "../common/graph.ts";
 
-const computeDominators = (arg: [graph, string]) => {
-  const cfg = arg[0];
-  const vertices = [...cfg.keys()];
+import {prettyPrint, readStdin} from "../common/commandLine.ts";
+import {bigIntersection, mapInv, setEquals} from "../common/dataStructureUtils.ts";
 
-  // compute predecessors
-  const predsMap = new Map<string, Set<string>>();
-  vertices.forEach((v) => {
-    predsMap.set(v, new Set());
-  });
-  cfg.entries().forEach(([v, succs]) => {
-    succs.forEach((succ) => {
-      predsMap.get(succ)!.add(v);
-    });
-  });
+const computeDominators = (cfg : Graph) => {
+  const vertices = cfg.getVertices()
 
   // dom = {each vertex -> all vertices}
   const dom = new Map<string, Set<string>>();
@@ -28,7 +20,7 @@ const computeDominators = (arg: [graph, string]) => {
 
     // for vertex in CFG:
     for (const v of vertices) {
-      const preds = predsMap.get(v);
+      const preds = cfg.predecessors(v);
 
       // dom[p] for p in vertex.preds
       const predDoms: Set<string>[] = [];
@@ -50,7 +42,8 @@ const computeDominators = (arg: [graph, string]) => {
   return dom;
 };
 
-const dominanceTree = (dom: Map<string, Set<string>>): graph => {
+export const dominanceTree = (cfg : Graph) => {
+  const dom = computeDominators(cfg)
   // inverted dominance map
   const inverted = mapInv(dom);
 
@@ -83,10 +76,10 @@ const dominanceTree = (dom: Map<string, Set<string>>): graph => {
   return result;
 };
 
-const dominanceFrontier = (
-  dom: Map<string, Set<string>>,
-  cfg: graph,
+export const dominanceFrontier = (
+  cfg: Graph,
 ): Map<string, string[]> => {
+  const dom = computeDominators(cfg)
   const result = new Map<string, string[]>();
 
   const inverted = mapInv(dom);
@@ -97,7 +90,7 @@ const dominanceFrontier = (
     const dominatedBlocks = inverted.get(node);
     if (dominatedBlocks) {
       for (const dominated of dominatedBlocks) {
-        cfg.get(dominated)?.forEach((successors) => {
+        cfg.successors(dominated).forEach((successors) => {
           dominatedSuccessors.add(successors);
         });
       }
@@ -115,7 +108,7 @@ const dominanceFrontier = (
 const modes = ["dom", "front", "tree"] as const;
 export type Mode = typeof modes[number];
 
-const main = (cfgs: Record<string, [graph, string]>, mode: Mode) => {
+const main = (cfgs: Record<string,Graph>, mode: Mode) => {
   const ret: Record<string, any> = {};
   for (const func in cfgs) {
     const cfg = cfgs[func];
@@ -124,11 +117,11 @@ const main = (cfgs: Record<string, [graph, string]>, mode: Mode) => {
       ret[func] = doms;
       prettyPrint(doms);
     } else if (mode === "tree") {
-      const tree = dominanceTree(doms);
+      const tree = dominanceTree(cfg);
       ret[func] = tree;
       prettyPrint(tree);
     } else if (mode === "front") {
-      const frontier = dominanceFrontier(doms, cfg[0]);
+      const frontier = dominanceFrontier(cfg);
       ret[func] = frontier;
       prettyPrint(frontier);
     }

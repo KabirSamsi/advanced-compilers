@@ -1,8 +1,10 @@
 import { assertExists } from "@std/assert";
-import {Block, brilInstruction, CFGs, graph, pred} from "./util.ts";
+// import {Block, brilInstruction, graph, pred} from "./util.ts";
 import main from "./main.ts";
 import { assertFalse } from "@std/assert/false";
 import { assert } from "@std/assert";
+import {CFGs} from "../ssa/bbcfg.ts";
+import { graph } from "./util.ts";
 
 /* Recursively compute all children of a node in the dominator tree
 * @param tree – The dominator tree
@@ -123,6 +125,17 @@ function getsAllDominators(tree : graph, g : [graph, string]) {
   isTree(tree, edges);
 }
 
+/* Extract predecessors of a block (indexed by label) in a CFG. */
+export const pred = (adj: graph, node: string): string[] => {
+  const predecessors: string[] = [];
+  for (const neighbor of adj.keys()) {
+    if ((adj.get(neighbor) || []).includes(node)) {
+      predecessors.push(neighbor);
+    }
+  }
+  return predecessors;
+};
+
 /*
   * Verifies that the dominance frontier for each node is correct
   * @param tree – The dominator tree
@@ -183,7 +196,7 @@ for await (const entry of Deno.readDir("test")) {
 
       for (const lbl of Object.keys(cfgs)) {
         let tree = trees[lbl];
-        getsAllDominators(tree, cfgs[lbl]);
+        getsAllDominators(tree, cfgs[lbl].toOldGraph());
       }
     });
 
@@ -196,7 +209,7 @@ for await (const entry of Deno.readDir("test")) {
       for (const lbl of Object.keys(cfgs)) {
         let tree = trees[lbl];
         let frontier = frontiers[lbl];
-        verifyDominanceFrontier(tree, cfgs[lbl], frontier);
+        verifyDominanceFrontier(tree, cfgs[lbl].toOldGraph(), frontier);
       }
     });
   }

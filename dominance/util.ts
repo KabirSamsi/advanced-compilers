@@ -179,17 +179,6 @@ const succ = (adj: graph, node: string): string[] => {
   return adj.get(node) || [];
 };
 
-/* Extract predecessors of a block (indexed by label) in a CFG. */
-export const pred = (adj: graph, node: string): string[] => {
-  const predecessors: string[] = [];
-  for (const neighbor of adj.keys()) {
-    if ((adj.get(neighbor) || []).includes(node)) {
-      predecessors.push(neighbor);
-    }
-  }
-  return predecessors;
-};
-
 export const readStdin = async (): Promise<string> => {
   const stdin = Deno.stdin.readable
       .pipeThrough(new TextDecoderStream())

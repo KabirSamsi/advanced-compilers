@@ -53,4 +53,17 @@ export class Graph {
 
     return JSON.stringify(result, null, 2);
   }
+
+  public toMap(): Map<string, string[]> {
+    const mapRepresentation = new Map<string, string[]>();
+    for (const [vertex, neighbors] of this.edges.entries()) {
+      mapRepresentation.set(vertex, neighbors.slice());
+    }
+    return mapRepresentation;
+  }
+
+  public toOldGraph(): [Map<string, string[]>, string] {
+    const map = this.toMap();
+    return [map,[...map.keys()][0]]
+}
 }
