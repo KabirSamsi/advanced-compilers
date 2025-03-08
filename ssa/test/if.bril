@@ -1,7 +1,18 @@
 @main(cond: bool) {
+.bob:
+.hello:
 .entry:
-    a: int = const 47;
+    a: int = const 1;
     br cond .left .right;
+    a: int = const 2;
+    ret a;
+    ret a;
+    ret a;
+    a : int = const 3;
+    a : int = const 3;
+    a : int = const 3;
+    a : int = const 3;
+    a : int = const 3;
 .left:
     a: int = add a a;
     jmp .exit;
@@ -10,4 +21,11 @@
     jmp .exit;
 .exit:
     print a;
+.useless:
+.souseless:
+    ret a;
+.idk:
 }
+
+@hello(){
+.bob:}

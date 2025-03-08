@@ -2,7 +2,6 @@ import {
   basicBlocks, generateCFG,
 
 
-
 } from "./bbcfg.ts";
 import {BlockMap, brilInstruction, brilProgram} from "../common/looseTypes.ts";
 import { dominanceFrontier, dominanceTree } from "../dominance/main.ts";
@@ -235,14 +234,14 @@ const main = async (stdin: string, preservePhiNodes: boolean) => {
   for (const fn of program.functions || []) {
     if (fn.instrs) {
       const blocks = basicBlocks(fn.instrs);
-      console.log(blocks);
+      // console.log(blocks);
       const cfg: Graph = generateCFG(blocks);
       const frontier = dominanceFrontier(cfg);
       const tree = dominanceTree(cfg);
 
-      // insertPhi(blocks, cfg, frontier);
+      insertPhi(blocks, cfg, frontier);
 
-      intoSSA(blocks,frontier,cfg,tree)
+      // intoSSA(blocks,frontier,cfg,tree)
       if (!preservePhiNodes) outOfSSA(blocks);
 
       fn.instrs = Array.from(blocks.entries()).flatMap((
@@ -254,7 +253,7 @@ const main = async (stdin: string, preservePhiNodes: boolean) => {
   // for JSON output
   // console.log(JSON.stringify(program,null, 2));
   const text = await runBril2Txt(program);
-  // console.log(text);
+  console.log(text);
 };
 
 if (import.meta.main) {

@@ -1,76 +1,72 @@
-import {Graph} from "../common/graph.ts";
-import {runBril2Json} from "../common/commandLine.ts";
-import {BlockMap, brilInstruction, brilProgram} from "../common/looseTypes.ts";
+import { Graph } from "../common/graph.ts";
+import { runBril2Json } from "../common/commandLine.ts";
+import {
+  BlockMap,
+  brilInstruction,
+  brilProgram,
+} from "../common/looseTypes.ts";
 
 /*
     Generate a series of basic blocks from a given instructions, and ordering of labels.
     @param instrs – The set of initial, unblocked instructions.
     @return – A series of blocks marked with their corresponding labels, along with an ordering of labels.
 */
-export const basicBlocks = (
-  instrs: Array<brilInstruction>,
-): BlockMap => {
-  // Store all labeled blocks
-  let blocks: BlockMap = new Map<
-    string,
-    Array<brilInstruction>
-  >();
-  const label_order: string[] = [];
-  let label_count: number = 0;
+export const basicBlocks = (instructions: brilInstruction[]): BlockMap => {
+  let blocks = new Map<string, brilInstruction[]>();
+  let currentBlock: brilInstruction[] = [];
+  let currentBlockLabel: string | undefined = undefined;
+  let labelCounter = 0;
 
-  // Traverse each block and add it
-  let curr_label: string = "";
-  let curr: Array<brilInstruction> = [];
-  for (const insn of instrs) {
-    // End block if it is a label or a terminator
+  const usedLabels = new Set(
+    instructions.filter((i) => i.label).map((i) => i.label!),
+  );
 
-    if (insn.label) {
-      if (curr.length > 0) {
-        if (curr_label == "") {
-          blocks.set("lbl" + label_count, curr);
-          label_order.push("lbl" + label_count);
-          label_count += 1;
-        } else {
-          blocks.set(curr_label, curr);
-          label_order.push(curr_label);
-        }
+  function newLabel(): string {
+    while (usedLabels.has(`lbl${labelCounter}`)) labelCounter++;
+    const generatedLabel = `lbl${labelCounter++}`;
+    usedLabels.add(generatedLabel);
+    return generatedLabel;
+  }
+
+  for (const instr of instructions) {
+    if (instr.label) {
+      // new block with explicit label
+      if (currentBlockLabel !== undefined || currentBlock.length > 0) {
+        // end previous block
+        const prevBlockLabel = currentBlockLabel ?? newLabel();
+        blocks.set(prevBlockLabel, currentBlock);
       }
-      curr = [];
-      curr_label = insn.label; // Update new label
-    } else if (insn.op) {
-      curr.push(insn);
-      if (insn.op == "jmp" || insn.op == "br" || insn.op == "ret") {
-        if (curr_label == "") {
-          blocks.set("lbl" + label_count, curr);
-          label_order.push("lbl" + label_count);
-          label_count += 1;
-        } else {
-          blocks.set(curr_label, curr);
-          label_order.push(curr_label);
-        }
-        curr = [];
-        curr_label = ""; // Until we have a new starting label, treat as dead code
-      }
+      // start the new block
+      currentBlockLabel = instr.label;
+      currentBlock = [];
     } else {
-      curr.push(insn);
+      // continue the block
+      currentBlock.push(instr);
+
+      if (["jmp", "br", "ret"].includes(instr.op ?? "")) {
+        // end previous block
+        const prevBlockLabel = currentBlockLabel ?? newLabel();
+        blocks.set(prevBlockLabel, currentBlock);
+        currentBlock = [];
+        currentBlockLabel = undefined;
+      }
     }
   }
-
-  if (curr_label == "") {
-    blocks.set("lbl" + label_count, curr);
-    label_order.push("lbl" + label_count);
-    label_count += 1;
-  } else {
-    blocks.set(curr_label, curr);
-    label_order.push(curr_label);
+  // finish any remaining blocks
+  if (currentBlockLabel !== undefined || currentBlock.length > 0) {
+    const prevBlockLabel = currentBlockLabel ?? newLabel();
+    blocks.set(prevBlockLabel, currentBlock);
   }
 
-  const entryBlock = label_order[0];
-  const isEntryTargeted = blocks.entries().some(([_, insns]) => {
-    return insns.at(-1)?.labels?.includes(entryBlock);
-  });
-  // TODO kabir i guess check this
-  if (isEntryTargeted) {
+  const entryBlock = blocks.keys().next().value;
+  if (entryBlock === undefined) return blocks;
+
+  // ensure entry
+  if (
+    blocks.entries().some(([_, insns]) =>
+      insns.at(-1)?.labels?.includes(entryBlock)
+    )
+  ) {
     let i: number = 1;
     while (blocks.has("entry" + i)) i += 1;
     const newEntry = "entry" + i;
@@ -78,10 +74,7 @@ export const basicBlocks = (
     blocks = new Map<string, brilInstruction[]>();
     blocks.set(newEntry, []);
     for (const [k, v] of oldBlocks) blocks.set(k, v);
-    label_order.unshift(newEntry);
   }
-
-  // TODO why do we have a dangling lbl0?
   return blocks;
 };
 
@@ -94,7 +87,7 @@ export const basicBlocks = (
 export const generateCFG = (
   blocks: BlockMap,
 ): Graph => {
-  const labels = blocks.keys().toArray()
+  const labels = blocks.keys().toArray();
   const g = new Graph(labels);
   for (const [label, insns] of blocks) {
     const finalLabels = insns.at(-1)?.labels;
@@ -143,4 +136,3 @@ export const CFGs = async (brildata: string) => {
   }
   return ret;
 };
-
