@@ -1,6 +1,6 @@
-b1:
+lbl0:
   in:  cond
-  out: a
+  out: ∅
 left:
   in:  a
   out: a, c

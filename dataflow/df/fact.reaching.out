@@ -1,0 +1,12 @@
+lbl0:
+  in:  ∅
+  out: {"dest":"result","op":"const","type":"int","value":1}, {"dest":"i","op":"const","type":"int","value":8}
+header:
+  in:  {"dest":"result","op":"const","type":"int","value":1}, {"dest":"i","op":"const","type":"int","value":8}, {"dest":"zero","op":"const","type":"int","value":0}, {"args":["i","zero"],"dest":"cond","op":"gt","type":"bool"}, {"args":["result","i"],"dest":"result","op":"mul","type":"int"}, {"dest":"one","op":"const","type":"int","value":1}, {"args":["i","one"],"dest":"i","op":"sub","type":"int"}
+  out: {"dest":"result","op":"const","type":"int","value":1}, {"dest":"i","op":"const","type":"int","value":8}, {"args":["result","i"],"dest":"result","op":"mul","type":"int"}, {"dest":"one","op":"const","type":"int","value":1}, {"args":["i","one"],"dest":"i","op":"sub","type":"int"}, {"dest":"zero","op":"const","type":"int","value":0}, {"args":["i","zero"],"dest":"cond","op":"gt","type":"bool"}
+body:
+  in:  {"dest":"result","op":"const","type":"int","value":1}, {"dest":"i","op":"const","type":"int","value":8}, {"args":["result","i"],"dest":"result","op":"mul","type":"int"}, {"dest":"one","op":"const","type":"int","value":1}, {"args":["i","one"],"dest":"i","op":"sub","type":"int"}, {"dest":"zero","op":"const","type":"int","value":0}, {"args":["i","zero"],"dest":"cond","op":"gt","type":"bool"}
+  out: {"dest":"zero","op":"const","type":"int","value":0}, {"args":["i","zero"],"dest":"cond","op":"gt","type":"bool"}, {"args":["result","i"],"dest":"result","op":"mul","type":"int"}, {"dest":"one","op":"const","type":"int","value":1}, {"args":["i","one"],"dest":"i","op":"sub","type":"int"}
+end:
+  in:  {"dest":"result","op":"const","type":"int","value":1}, {"dest":"i","op":"const","type":"int","value":8}, {"args":["result","i"],"dest":"result","op":"mul","type":"int"}, {"dest":"one","op":"const","type":"int","value":1}, {"args":["i","one"],"dest":"i","op":"sub","type":"int"}, {"dest":"zero","op":"const","type":"int","value":0}, {"args":["i","zero"],"dest":"cond","op":"gt","type":"bool"}
+  out: {"dest":"result","op":"const","type":"int","value":1}, {"dest":"i","op":"const","type":"int","value":8}, {"args":["result","i"],"dest":"result","op":"mul","type":"int"}, {"dest":"one","op":"const","type":"int","value":1}, {"args":["i","one"],"dest":"i","op":"sub","type":"int"}, {"dest":"zero","op":"const","type":"int","value":0}, {"args":["i","zero"],"dest":"cond","op":"gt","type":"bool"}

@@ -1,12 +1,12 @@
-b1:
+lbl0:
   in:  ∅
-  out: i, result
+  out: i
 header:
   in:  i, result
   out: i, result
 body:
   in:  i, result
-  out: i, result
+  out: i
 end:
   in:  result
   out: ∅

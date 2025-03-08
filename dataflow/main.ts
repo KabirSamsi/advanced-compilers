@@ -1,7 +1,9 @@
 import {basicBlocks, generateCFG} from "../common/basicBlockCFG.ts";
-import { readStdin, runBril2Json } from "../common/commandLine.ts";
+import {readStdin, runBril2Json} from "../common/commandLine.ts";
 import {Graph} from "../common/graph.ts";
 import {BlockMap, brilInstruction, brilProgram} from "../common/looseTypes.ts";
+import {format} from "../common/dataStructureUtils.ts";
+
 type Block = string;
 
 /* Maps constant-folding opcodes to their relative functions */
@@ -203,23 +205,6 @@ const constantProp = (graph: Graph, blocks: BlockMap) => {
     }
     return worklist_forwards<data>(graph, transfer, merge, () => new Map());
 }
-
-// deno-lint-ignore no-explicit-any
-const format = (val: any): string => {
-    if (val instanceof Set) {
-        return val.size > 0 ? Array.from(val).join(", ") : "∅";
-    } else if (val instanceof Map) {
-        return val.size > 0
-            ? Array.from(val.entries()).map(([k, v]) => `${k}: ${v}`).join(", ")
-            : "∅";
-    } else if (typeof val === "object" && val !== null) {
-        return Object.keys(val).length > 0
-            ? Object.entries(val).map(([k, v]) => `${k}: ${v}`).join(", ")
-            : "∅";
-    } else {
-        return val;
-    }
-};
 
 
 /* Main function */
