@@ -19,27 +19,27 @@ const reduceMap = new Map<string, Function>([
     ["or", (x : boolean, y : boolean) : boolean => x || y],
 ]);
 
-/* Union of two sets */
-const union = (s1 : Set<any>, s2 : Set<any>) : Set<any> => {
-    s2.forEach(elem => s1.add(elem));
-    return s1;
+const union = (s1: Set<any>, s2: Set<any>): Set<any> => {
+    const result = new Set(s1)
+    s2.forEach(elem => result.add(elem))
+    return result
 }
 
-/* Key-value equivalent union of two maps */
-const unionMap = (s1 : Map<any, any>, s2 : Map<any, any>) : Map<any, any> => {
-    s2.forEach((v, k) => {
-        if (s1.has(k)) {
-            if (s1.get(k) != v) {
-                s1.delete(k);
+const unionMap = (m1: Map<any, any>, m2: Map<any, any>): Map<any, any> => {
+    const result = new Map(m1)
+    m2.forEach((v, k) => {
+        if (result.has(k)) {
+            if (result.get(k) !== v) {
+                result.delete(k)
             }
         } else {
-            s1.set(k, v);
+            result.set(k, v)
         }
     })
-    return s1;
+    return result
 }
 
-/* Implementation of the worklist algorithm. */
+/* Implementation of the worklist algorithm for forward analyses. */
 function worklist_forwards<Data>(graph: Graph, transfer: (a: Block, b: Data) => Data, merge: (data: Data[]) => Data, init: () => Data): Record<Block, Data>[] {
     /* Pseudocode
         in[entry] = init
@@ -65,7 +65,6 @@ function worklist_forwards<Data>(graph: Graph, transfer: (a: Block, b: Data) => 
         const prevOuts = outs[b]
         outs[b] = transfer(b, ins[b])
         if (JSON.stringify(prevOuts) != JSON.stringify(outs[b])) {
-            // TODO
             worklist.push(...graph.successors(b))
         }
     }
@@ -121,13 +120,10 @@ const lva = (graph: Graph, blocks: BlockMap) => {
 
     /* Transfer function */
     const transfer = (b: Block, outs: data): data => {
-        let ins: data = outs;
-        for (const line of blocks.get(b)!.reverse()) {
-            if (line.dest != undefined) {
-                ins.delete(line.dest!);
-            }
-            const uses: data = new Set((line.args || []));
-            ins = union(ins, uses);
+        const ins: data = new Set(outs);
+        for (const line of [...blocks.get(b)!].reverse()) {
+            if (line.dest !== undefined) ins.delete(line.dest);
+            if (line.args) for (const arg of line.args) ins.add(arg);
         }
         return ins;
     }
@@ -150,14 +146,12 @@ const reaching = (graph: Graph, blocks: BlockMap) => {
 
     /* Transfer function */
     const transfer = (b: Block, ins: data): data => {
-        const outs: data = ins;
+        const outs: data = new Set(ins);
         for (const line of blocks.get(b)!) {
-            // If a definition is formed
-            if (line.dest != undefined) {
+            if (line.dest !== undefined) {
                 for (const elem of outs) {
-                    if (elem.dest! == line.dest) {
+                    if (elem.dest === line.dest) {
                         outs.delete(elem);
-                        break;
                     }
                 }
                 outs.add(line);
@@ -184,12 +178,12 @@ const constantProp = (graph: Graph, blocks: BlockMap) => {
 
     /* Transfer function */
     const transfer = (b: Block, ins: data): data => {
-        const outs: data = ins;
+        const outs: data = new Map(ins);
         for (const line of blocks.get(b)!) {
             // If a definition is formed and uses only constants, add it
             if (line.dest && line.op) {
                 if (reduceMap.has(line.op) && line.args) {
-                    if (line.args!.length == 2 &&
+                    if (line.args.length == 2 &&
                         outs.has(line.args[0]) &&
                         outs.has(line.args[1])) {
                         outs.set(line.dest,
@@ -281,4 +275,3 @@ const main = async () => {
 if (import.meta.main) {
     main();
 }
-
