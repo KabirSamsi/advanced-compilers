@@ -1,18 +1,17 @@
-import { assertExists } from "@std/assert";
-// import {Block, brilInstruction, graph, pred} from "./util.ts";
 import main from "./main.ts";
 import { assertFalse } from "@std/assert/false";
 import { assert } from "@std/assert";
-import {CFGs} from "../ssa/bbcfg.ts";
-import { graph } from "./util.ts";
+import { CFGs } from "../ssa/bbcfg.ts";
+
+type graph = Map<string, string[]>;
 
 /* Recursively compute all children of a node in the dominator tree
 * @param tree – The dominator tree
 * @param node – The node of interest
 * @return – All children of node in tree
 */
-function getDominated(tree : graph, node : string) : Array<string> {
-  let descendents : Array<string> = [node];
+function getDominated(tree: graph, node: string): Array<string> {
+  let descendents: Array<string> = [node];
   for (const child of tree.get(node) || []) {
     for (const descendent of getDominated(tree, child)) {
       descendents.push(descendent);
@@ -25,20 +24,20 @@ function getDominated(tree : graph, node : string) : Array<string> {
 * @param tree – The dominator tree
 * @return – Validation
 */
-function isTree(tree : graph, edges : Array<[string, string]>) : boolean {
-  let parent : Map<string, string> = new Map();
+function isTree(tree: graph, edges: Array<[string, string]>): boolean {
+  let parent: Map<string, string> = new Map();
   for (const node of tree.keys()) {
     parent.set(node, node);
   }
 
-  function find(node : string) {
+  function find(node: string) {
     if (parent.get(node)! == node) {
       return node;
     }
     return find(parent.get(node)!);
   }
 
-  function union(n1 : string, n2 : string) {
+  function union(n1: string, n2: string) {
     parent.set(find(n1), find(n2));
   }
 
@@ -56,20 +55,19 @@ function isTree(tree : graph, edges : Array<[string, string]>) : boolean {
 * @param b – Destination node
 */
 function dom(
-    cfg : graph,
-    entry : string,
-    a : string,
-    b : string,
-) : boolean  {
-
+  cfg: graph,
+  entry: string,
+  a: string,
+  b: string,
+): boolean {
   if (a == b) return true;
 
   // Check that it's possible to reach b via a
-  let reachable : boolean = false;
-  let queue : Array<string> = [entry];
-  let visited : Set<string> = new Set([entry]);
+  let reachable: boolean = false;
+  let queue: Array<string> = [entry];
+  let visited: Set<string> = new Set([entry]);
   while (queue.length > 0) {
-    let front : string = queue.shift()!;
+    let front: string = queue.shift()!;
     if (front == b) {
       reachable = true;
       break;
@@ -90,7 +88,7 @@ function dom(
   queue = [entry];
   visited = new Set([entry, a]);
   while (queue.length > 0) {
-    let front : string = queue.shift()!;
+    let front: string = queue.shift()!;
     if (front == b) return false;
     for (let neighbor of cfg.get(front)!) {
       if (!visited.has(neighbor)) {
@@ -107,16 +105,16 @@ function dom(
 * @param tree - Dominator tree
 * @param g – CFG with its given entry point
 */
-function getsAllDominators(tree : graph, g : [graph, string]) {
+function getsAllDominators(tree: graph, g: [graph, string]) {
   let [cfg, entry] = g;
   for (const f of cfg.keys()) {
     for (const t of cfg.keys()) {
       // f dominates t <=> t is a descendent of f in the dominator tree
-      assert(dom(cfg, entry, f, t)  == getDominated(tree, f).includes(t));
+      assert(dom(cfg, entry, f, t) == getDominated(tree, f).includes(t));
     }
   }
 
-  let edges : Array<[string, string]> = [];
+  let edges: Array<[string, string]> = [];
   for (const [node, neighbors] of tree) {
     for (const neighbor of neighbors) {
       edges.push([node, neighbor]);
@@ -137,15 +135,19 @@ export const pred = (adj: graph, node: string): string[] => {
 };
 
 /*
-  * Verifies that the dominance frontier for each node is correct
-  * @param tree – The dominator tree
-  * @param g – The CFG and its entry
-  * @param frontier – The frontier whom we are testing
-* */
-function verifyDominanceFrontier(tree : graph, g : [graph, string], frontier : graph) {
+ * Verifies that the dominance frontier for each node is correct
+ * @param tree – The dominator tree
+ * @param g – The CFG and its entry
+ * @param frontier – The frontier whom we are testing
+ */
+function verifyDominanceFrontier(
+  tree: graph,
+  g: [graph, string],
+  frontier: graph,
+) {
   const [cfg, _entry] = g;
-  const preds : Map<string, Array<string>> = new Map();
-  const dominated : Map<string, Array<string>> = new Map();
+  const preds: Map<string, Array<string>> = new Map();
+  const dominated: Map<string, Array<string>> = new Map();
   for (const node of cfg.keys()) {
     preds.set(node, pred(cfg, node));
     dominated.set(node, getDominated(tree, node));
@@ -161,8 +163,10 @@ function verifyDominanceFrontier(tree : graph, g : [graph, string], frontier : g
       */
 
       if (frontier.get(node)!.includes(neighbor)) {
-        assertFalse(node != neighbor && dominated.get(node)!.includes(neighbor));
-        let dominatesOne : boolean = false;
+        assertFalse(
+          node != neighbor && dominated.get(node)!.includes(neighbor),
+        );
+        let dominatesOne: boolean = false;
         for (let p of preds.get(neighbor)!) {
           if (dominated.get(node)!.includes(p)) {
             dominatesOne = true;
@@ -172,10 +176,10 @@ function verifyDominanceFrontier(tree : graph, g : [graph, string], frontier : g
       }
 
       /*
-        * If A does not strictly dominate B (means A == B or B is not in A's dominated)
-        * Scan through all of B's predecesors. If A dominates at least one of them:
-        * Then B should be in A's frontier
-      */
+       * If A does not strictly dominate B (means A == B or B is not in A's dominated)
+       * Scan through all of B's predecesors. If A dominates at least one of them:
+       * Then B should be in A's frontier
+       */
       if (node == neighbor || !dominated.get(node)!.includes(neighbor)) {
         for (let p of preds.get(neighbor)!) {
           if (dominated.get(node)!.includes(p)) {

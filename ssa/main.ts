@@ -6,7 +6,6 @@ import {
 } from "./bbcfg.ts";
 import {BlockMap, brilInstruction, brilProgram} from "../common/looseTypes.ts";
 import { dominanceFrontier, dominanceTree } from "../dominance/main.ts";
-import {Block} from "../dominance/util.ts";
 import {Graph} from "../common/graph.ts";
 import {prettyPrint, readStdin, runBril2Json, runBril2Txt} from "../common/commandLine.ts";
 
