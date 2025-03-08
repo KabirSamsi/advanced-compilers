@@ -11,7 +11,7 @@ import {
     @param instrs – The set of initial, unblocked instructions.
     @return – A series of blocks marked with their corresponding labels, along with an ordering of labels.
 */
-export const basicBlocks = (instructions: brilInstruction[]): BlockMap => {
+export const basicBlocks = (instructions: brilInstruction[], ensureEntry: boolean = true): BlockMap => {
   let blocks = new Map<string, brilInstruction[]>();
   let currentBlock: brilInstruction[] = [];
   let currentBlockLabel: string | undefined = undefined;
@@ -59,7 +59,7 @@ export const basicBlocks = (instructions: brilInstruction[]): BlockMap => {
   }
 
   const entryBlock = blocks.keys().next().value;
-  if (entryBlock === undefined) return blocks;
+  if (ensureEntry === false || entryBlock === undefined) return blocks;
 
   // ensure entry
   if (

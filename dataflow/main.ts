@@ -64,7 +64,7 @@ function worklist_forwards<Data>(graph: Graph, transfer: (a: Block, b: Data) => 
         ins[b] = merge(preds.map(p => outs[p] || init()))
         const prevOuts = outs[b]
         outs[b] = transfer(b, ins[b])
-        if (JSON.stringify(prevOuts) != JSON.stringify(ins[b])) {
+        if (JSON.stringify(prevOuts) != JSON.stringify(outs[b])) {
             // TODO
             worklist.push(...graph.successors(b))
         }
@@ -163,7 +163,7 @@ const reaching = (graph: Graph, blocks: BlockMap) => {
                 outs.add(line);
             }
         }
-        return ins;
+        return outs;
     }
 
     return worklist_forwards<data>(graph, transfer, merge, () => new Set());
@@ -248,7 +248,7 @@ const main = async () => {
 
     for (const fn of data.functions || []) {
         if (result.functions) {
-            const blocks = basicBlocks(fn.instrs ?? [])
+            const blocks = basicBlocks(fn.instrs ?? [],false)
             const graph = generateCFG(blocks);
 
             let analysisResult;
