@@ -11,7 +11,7 @@ export type brilInstruction = {
 export type brilFunction = {
     instrs?: brilInstruction[];
     name?: string;
-    args?: string[];
+    args?: {name: string, type : string}[];
     type?: string;
 };
 export type brilProgram = { functions?: brilFunction[] };

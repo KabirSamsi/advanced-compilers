@@ -66,32 +66,17 @@ const findAllVars = (blocks: BlockMap): Set<string> => {
 */
 const insertPhi = (
   blocks: BlockMap,
-  args : Array<string>,
+  args : string[],
   cfg: Graph,
   frontier: Map<string, string[]>,
 ): BlockMap => {
-  //         {
-  //           "args": [
-  //             "a.2",
-  //             "a.3"
-  //           ],
-  //           "dest": "a.1",
-  //           "labels": [
-  //             "left",
-  //             "right"
-  //           ],
-  //           "op": "phi",
-  //           "type": "int"
-  //         },
-
   const vars: Set<string> = findAllVars(blocks).union(new Set(args));
-  console.log(vars);
 
   const defs: Map<string, Set<string>> = defSources(blocks);
   const addedPhi: Set<string> = new Set<string>();
 
   for (const variable of vars) {
-    for (const def of defs.get(variable)!) {
+    for (const def of defs.get(variable) || []) {
       // Iterate through each block in dominance frontier
       for (const lbl of frontier.get(def)!) {
         if (!addedPhi.has(lbl)) {
@@ -141,7 +126,6 @@ const rename = (
   for (const instr of blocks.get(blockname)!) {
     // Map to new names on top of the stack
     if (instr.op && instr.op != "phi" && instr.args) {
-      // console.log(instr.args, stacks);
       instr.args = instr.args!.map((arg) => {
         return stacks.get(arg)![0];
       });
@@ -162,8 +146,9 @@ const rename = (
   for (const succ of successors) {
     for (const instr of blocks.get(succ)!) {
       if (instr.op && instr.op == "phi" && instr.args) {
-        console.log(instr, instr.args, stacks);
-        instr.args = instr.args!.map((arg) => {return stacks.get(arg)![0];});
+        instr.args = instr.args!.map((arg) => {
+          return stacks.get(arg)?.[0] ?? arg;
+        });
       }
     }
   }
@@ -174,15 +159,13 @@ const rename = (
   }
 
   // Pop recently pushed fresh names
-  console.log(stacks);
   for (const name of freshVars) {
-    for (const stack of stacks) {
+    for (const [_varname, stack] of stacks) {
       while (stack.length > 0 && stack[0] == name) {
         stack.shift();
       }
     }
   }
-  console.log(stacks);
 };
 
 /*
@@ -190,13 +173,16 @@ const rename = (
  */
 const enterSSA = (
   blocks: BlockMap,
-  args : Array<string>,
+  args : string[],
   frontier: Map<string, string[]>,
   cfg: Graph,
   tree: Map<string, string[]>,
 ) => {
   insertPhi(blocks, args, cfg, frontier);
-  const stacks = new Map<string, Array<string>>();
+  const stacks = new Map<string, string[]>();
+  for (const arg of args) {
+    stacks.set(arg, [arg]);
+  }
   for (const variable of findAllVars(blocks)) {
     stacks.set(variable, [variable]);
   }
@@ -250,7 +236,7 @@ const main = async (stdin: string, intoSSA: boolean, outOfSSA: boolean) => {
   for (const fn of program.functions || []) {
     if (fn.instrs) {
       const blocks = basicBlocks(fn.instrs);
-      const args = fn.args || [];
+      const args = (fn.args || []).map(({name, type}) => name);
       const cfg: Graph = generateCFG(blocks);
       const frontier = dominanceFrontier(cfg);
       const tree = dominanceTree(cfg);
