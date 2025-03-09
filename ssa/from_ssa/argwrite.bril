@@ -1,3 +1,4 @@
+# ARGS: 3
 @main(a: int) {
 .b1:
   cond.0: bool = const true;

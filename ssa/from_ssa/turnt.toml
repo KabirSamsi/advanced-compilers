@@ -1,0 +1,1 @@
+command = "bril2json < {filename} | deno ../main.ts out | brili {args}"

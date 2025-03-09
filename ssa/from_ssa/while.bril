@@ -1,3 +1,4 @@
+# ARGS: 5
 @main(a: int) {
 .entry1:
   jmp .while.cond;

@@ -53,6 +53,14 @@ turnt test/*.bril -e in-valid
 turnt test/*.bril -e roundtrip-valid
 ```
 
+### Leaving SSA
+
+To test leaving SSA independently of entering SSA, we turned the `.out` files from the `bril` repo's into SSA test cases.
+
+```shell
+turnt from_ssa/*.bril
+```
+
 ## Links
 
 Writeup: https://github.com/sampsyo/cs6120/discussions/454#discussioncomment-12437998
