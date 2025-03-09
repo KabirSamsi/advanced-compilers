@@ -1,0 +1,15 @@
+[envs.in-valid]
+command = "bril2json < {filename} | deno ../main.ts in | python ../is_ssa.py"
+output.valid = "-"
+
+[envs.in-run]
+command = "bril2json < {filename} | deno ../main.ts in | brili {args}"
+output.out = "-"
+
+[envs.roundtrip-valid]
+command = "bril2json < {filename} | deno ../main.ts | python ../is_ssa.py"
+output.valid = "-"
+
+[envs.roundtrip-run]
+command = "bril2json < {filename} | deno ../main.ts | brili {args}"
+output.out = "-"
