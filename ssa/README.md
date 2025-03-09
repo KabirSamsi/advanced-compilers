@@ -6,17 +6,17 @@ You can translate Bril programs into SSA, out of SSA, or both (roundtrip).
 
 Use the `in` argument to only translate into SSA and preserve phi nodes.
 ```shell
-deno --allow-run main.ts < to_phi_node/loop-branch.bril in
+bril2json < to_phi_node/loop-branch.bril | deno main.ts in | bril2txt
 ```
 
 Use the `out` argument to translate an SSA bril program that uses `phi` instructions out of SSA.
 ```shell
-deno --allow-run main.ts < to_phi_node/loop-branch.out out
+bril2json < to_phi_node/loop-branch.out | deno main.ts out | bril2txt
 ```
 
 Don't specify any parameters for roundtrip.
 ```shell
-deno --allow-run main.ts < test/argwrite.bril
+bril2json < test/argwrite.bril | deno main.ts | bril2txt
 ```
 
 ## Test
