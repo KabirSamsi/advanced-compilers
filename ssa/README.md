@@ -30,15 +30,31 @@ brench brench.toml
 
 ### Turnt
 
-#### Check SSA
-We use turnt to verify our roundtrip output is SSA with the `is_ssa.py` python script.
+#### Correctness
+We use `brili` to verify into SSA and out roundtrip evaluates correctly.
 
 ```shell
-turnt roundtrip-is-ssa/*.bril
+turnt test/*.bril -e in-run
+```
+
+```shell
+turnt test/*.bril -e roundtrip-run
+```
+
+#### Check SSA
+
+We use turnt to verify into SSA and roundtrip output is SSA with the `is_ssa.py` python script.
+
+```shell
+turnt test/*.bril -e in-valid
+```
+
+```shell
+turnt test/*.bril -e roundtrip-valid
 ```
 
 ## Links
 
-Writeup: 
+Writeup: https://github.com/sampsyo/cs6120/discussions/454#discussioncomment-12437998
 
 Tasks: https://www.cs.cornell.edu/courses/cs6120/2025sp/lesson/6//#tasks
