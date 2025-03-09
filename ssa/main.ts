@@ -66,6 +66,7 @@ const findAllVars = (blocks: BlockMap): Set<string> => {
 */
 const insertPhi = (
   blocks: BlockMap,
+  args : Array<string>,
   cfg: Graph,
   frontier: Map<string, string[]>,
 ): BlockMap => {
@@ -83,7 +84,9 @@ const insertPhi = (
   //           "type": "int"
   //         },
 
-  const vars: Set<string> = findAllVars(blocks);
+  const vars: Set<string> = findAllVars(blocks).union(new Set(args));
+  console.log(vars);
+
   const defs: Map<string, Set<string>> = defSources(blocks);
   const addedPhi: Set<string> = new Set<string>();
 
@@ -95,9 +98,9 @@ const insertPhi = (
           addedPhi.add(lbl);
 
           // Build up phi node with proper data
-          let newArgs = [];
-          let newLabels = [];
-          for (let pred of cfg.predecessors(lbl)) {
+          const newArgs = [];
+          const newLabels = [];
+          for (const pred of cfg.predecessors(lbl)) {
             newLabels.push(pred);
             newArgs.push(variable);
           }
@@ -132,50 +135,71 @@ const rename = (
   cfg: Graph,
   tree: Map<string, string[]>,
 ) => {
-  for (const instr of blocks.get(blockname)!) {
-    instr.args = instr.args?.map((v) => {
-      if (stacks.get(v)) {
-        return stacks.get(v)![0];
-      } else {
-        return v;
-      }
-    });
-    instr.dest = instr.dest + "_" + blockname;
-    console.log(stacks);
-    let newArr = stacks.get(instr.dest)!;
-    newArr.unshift(instr.dest + "_" + blockname);
-    stacks.set(instr.dest, newArr);
-  }
 
-  const successors = cfg.successors(blockname);
-  for (let succ of successors) {
-    for (let insn of blocks.get(succ)!) {
-      if (insn.op && insn.op == "phi" && insn.args) {
-        let replacements: string[] = [];
-        for (let arg of insn.args) {
-          replacements.push(stacks.get(arg)![0]);
-        }
-        insn.args = replacements;
+  const freshVars : Set<string> = new Set();
+  // Replace arguments with new names; update destination with fresh name
+  for (const instr of blocks.get(blockname)!) {
+    // Map to new names on top of the stack
+    if (instr.op && instr.op != "phi" && instr.args) {
+      // console.log(instr.args, stacks);
+      instr.args = instr.args!.map((arg) => {
+        return stacks.get(arg)![0];
+      });
+      if (instr.dest) {
+        const fresh = instr.dest + "_" + blockname;
+        freshVars.add(fresh);
+        // Replace with new name
+        const newArr = stacks.get(instr.dest)!;
+        newArr.unshift(fresh);
+        stacks.set(instr.dest, newArr);
+        instr.dest = fresh;
       }
     }
   }
 
-  for (let child of tree.get(blockname)!) {
+  // Update phi-nodes in successor nodes
+  const successors = cfg.successors(blockname);
+  for (const succ of successors) {
+    for (const instr of blocks.get(succ)!) {
+      if (instr.op && instr.op == "phi" && instr.args) {
+        console.log(instr, instr.args, stacks);
+        instr.args = instr.args!.map((arg) => {return stacks.get(arg)![0];});
+      }
+    }
+  }
+
+  // Recurse over all children immediately dominated (in dominator tree)
+  for (const child of tree.get(blockname)!) {
     rename(stacks, blocks, child, cfg, tree);
   }
+
+  // Pop recently pushed fresh names
+  console.log(stacks);
+  for (const name of freshVars) {
+    for (const stack of stacks) {
+      while (stack.length > 0 && stack[0] == name) {
+        stack.shift();
+      }
+    }
+  }
+  console.log(stacks);
 };
 
 /*
  * Perform translation into SSA
  */
-const intoSSA = (
+const enterSSA = (
   blocks: BlockMap,
+  args : Array<string>,
   frontier: Map<string, string[]>,
   cfg: Graph,
   tree: Map<string, string[]>,
 ) => {
-  insertPhi(blocks, cfg, frontier);
+  insertPhi(blocks, args, cfg, frontier);
   const stacks = new Map<string, Array<string>>();
+  for (const variable of findAllVars(blocks)) {
+    stacks.set(variable, [variable]);
+  }
   if (blocks.size > 0) {
     rename(stacks, blocks, [...blocks][0][0], cfg, tree);
   }
@@ -193,19 +217,6 @@ const insertSets = (block: brilInstruction[]): brilInstruction[] => {
 };
 
 const leaveSSA = (blocks: BlockMap) => {
-  //         {
-  //           "args": [
-  //             "a.2",
-  //             "a.3"
-  //           ],
-  //           "dest": "a.1",
-  //           "labels": [
-  //             "left",
-  //             "right"
-  //           ],
-  //           "op": "phi",
-  //           "type": "int"
-  //         },
   blocks.forEach((block, blockName) => {
     const newBlock = block.filter((insn) => {
       if (insn?.op === "phi") {
@@ -239,15 +250,15 @@ const main = async (stdin: string, intoSSA: boolean, outOfSSA: boolean) => {
   for (const fn of program.functions || []) {
     if (fn.instrs) {
       const blocks = basicBlocks(fn.instrs);
-      // console.log(blocks);
+      const args = fn.args || [];
       const cfg: Graph = generateCFG(blocks);
       const frontier = dominanceFrontier(cfg);
       const tree = dominanceTree(cfg);
 
       if (intoSSA) {
-        insertPhi(blocks, cfg, frontier);
-        // intoSSA(blocks,frontier,cfg,tree)
+        enterSSA(blocks, args, frontier,cfg,tree)
       }
+      console.log(blocks);
 
       if (outOfSSA) leaveSSA(blocks);
 
