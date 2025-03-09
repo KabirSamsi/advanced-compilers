@@ -244,7 +244,6 @@ const main = async (stdin: string, intoSSA: boolean, outOfSSA: boolean) => {
       if (intoSSA) {
         enterSSA(blocks, args, frontier,cfg,tree)
       }
-      console.log(blocks);
 
       if (outOfSSA) leaveSSA(blocks);
 
@@ -255,9 +254,9 @@ const main = async (stdin: string, intoSSA: boolean, outOfSSA: boolean) => {
   }
 
   // for JSON output
-  // console.log(JSON.stringify(program,null, 2));
-  const text = await runBril2Txt(program);
-  console.log(text);
+  console.log(JSON.stringify(program,null, 2));
+  // const text = await runBril2Txt(program);
+  // console.log(JSON.program);
 };
 
 if (import.meta.main) {

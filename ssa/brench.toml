@@ -11,16 +11,15 @@ timeout = 100
 [runs.into_ssa]
 pipeline = [
     "bril2json",
-    "deno main.ts phi",
+    "deno main.ts in",
     "brilirs -p {args}",
 ]
 
-[runs.out_of_ssa]
+[runs.roundtrip]
 pipeline = [
     "bril2json",
     "deno main.ts",
     "brilirs -p {args}",
 ]
-
 
 timeout = 100

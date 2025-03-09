@@ -30,10 +30,11 @@ brench brench.toml
 
 ### Turnt
 
-We use turnt to verify our outputs are SSA with the `is_ssa.py` python script.
+#### Check SSA
+We use turnt to verify our roundtrip output is SSA with the `is_ssa.py` python script.
 
 ```shell
-turnt test/*.bril
+turnt roundtrip-is-ssa/*.bril
 ```
 
 ## Links
