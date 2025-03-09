@@ -210,17 +210,24 @@ const leaveSSA = (blocks: BlockMap) => {
         const args = insn.args ?? [];
         const labels = insn.labels ?? [];
         for (let i = 0; i < Math.min(args.length, labels.length); i++) {
-          blocks.get(labels[i])!.push({
+          if (args[i] === "__undefined") continue;
+          const newInsn: brilInstruction = {
             op: "id",
             dest: insn.dest,
             args: [args[i]],
-          });
+          };
+          const otherBlock = blocks.get(labels[i])!;
+          if (otherBlock.length > 0 && ["jmp", "br", "ret"].includes(otherBlock[otherBlock.length - 1].op ?? "")) {
+            otherBlock.splice(otherBlock.length - 1, 0, newInsn);
+          } else {
+            otherBlock.push(newInsn);
+          }
+          blocks.get(labels[i])!.push();
         }
         return false;
       }
       return true;
     });
-    // Update the block in the map with the filtered instructions
     blocks.set(blockName, newBlock);
   });
 };
