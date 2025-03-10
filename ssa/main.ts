@@ -70,21 +70,32 @@ const insertPhi = (
   cfg: Graph,
   frontier: Map<string, string[]>,
 ): BlockMap => {
+  // Variables and arguments
   const vars: Set<string> = findAllVars(blocks).union(new Set(args));
 
+  // Blocks where variables are defined
   const defs: Map<string, Set<string>> = defSources(blocks);
-  const addedPhi: Set<string> = new Set<string>();
+
+  // Track which variables have had their phi nodes added for any given block
+  const addedPhi: Map<string, Set<string>> = new Map<string, Set<string>>();
+  for (let [label, insns] of blocks) {
+    addedPhi.set(label, new Set());
+  }
 
   for (const variable of vars) {
     for (const def of defs.get(variable) || []) {
       // Iterate through each block in dominance frontier
       for (const lbl of frontier.get(def)!) {
-        if (!addedPhi.has(lbl)) {
-          addedPhi.add(lbl);
+        // Add new block in
+        if (!addedPhi.get(lbl)!.has(variable)) {
+          const newSet : Set<string> = addedPhi.get(lbl)!;
+          newSet.add(variable);
+          addedPhi.set(lbl, newSet);
 
           // Build up phi node with proper data
           const newArgs = [];
           const newLabels = [];
+
           for (const pred of cfg.predecessors(lbl)) {
             newLabels.push(pred);
             newArgs.push(variable);
@@ -261,9 +272,9 @@ const main = async (stdin: string, intoSSA: boolean, outOfSSA: boolean) => {
   }
 
   // for JSON output
-  console.log(JSON.stringify(program,null, 2));
-  // const text = await runBril2Txt(program);
-  // console.log(JSON.program);
+  // console.log(JSON.stringify(program,null, 2));
+  const text = await runBril2Txt(program);
+  console.log(text);
 };
 
 if (import.meta.main) {
