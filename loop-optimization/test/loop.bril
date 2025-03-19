@@ -1,0 +1,17 @@
+@main() {
+  one : int = const 1;
+  top : int = const 10;
+  i : int = const 0;
+  total : int = const 0;
+  reached: bool = eq i top;
+
+  .loop:
+  br reached .end .add;
+
+  .add:
+  total = add total i;
+  i = add i one;
+  jmp .loop;
+
+  .end:
+}
