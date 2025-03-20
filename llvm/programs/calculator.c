@@ -12,7 +12,7 @@ int calculator(int x, int y, int op) {
             return x*20;
             break;
         case 3:
-            return x/10;
+            return x/16;
             break;
         default:
             return 0;
@@ -20,7 +20,7 @@ int calculator(int x, int y, int op) {
 }
 
 int main() {
-    int x = 50;
+    int x = 64;
     int y = 2;
     int op = 3;
 

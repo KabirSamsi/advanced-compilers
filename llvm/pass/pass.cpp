@@ -72,10 +72,7 @@ namespace {
                                         Value* shift_left = builder.CreateShl(left, builder.getInt32(slval));
                                         if (lhs == 1) {
                                             errs() << "Transforming multiplication by " << oldMultiplier << " into left-shifting by " << slval << "\n";
-                                            for (auto& U : op->uses()) {
-                                                User* user = U.getUser();
-                                                user->setOperand(U.getOperandNo(), shift_left);
-                                            }
+                                            op->replaceAllUsesWith(shift_left);
                                         } else {
                                             errs() << "Transforming multiplication by " << oldMultiplier << " into left-shifting by " << slval << " and subsequent multiplication by " << lhs << "\n";
                                             Value* residual_mult = builder.CreateMul(shift_left, builder.getInt32(lhs));
