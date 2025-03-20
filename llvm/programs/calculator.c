@@ -1,3 +1,4 @@
+#include <stdio.h>
 
 int calculator(int x, int y, int op) {
     switch (op) {
@@ -11,7 +12,7 @@ int calculator(int x, int y, int op) {
             return x*y;
             break;
         case 3:
-            return x/y;
+            return x/0;
             break;
         default:
             return 0;
@@ -19,11 +20,12 @@ int calculator(int x, int y, int op) {
 }
 
 int main() {
-    int x = 2;
-    int y = 3;
-    int op = 2;
+    int x = 50;
+    int y = 2;
+    int op = 3;
 
-    calculator(x, y, op);
+    int result = calculator(x, y, op);
+    printf("%i\n", result);
 
     return 0;
 }

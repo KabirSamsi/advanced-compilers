@@ -144,7 +144,6 @@ const main = async (stdin) => {
             const back : Map<string, Set<string>> = backEdges(cfg);
             const loops : [string, Set<string>][] = naturalLoops(cfg, back);
             console.log(loops);
-            // console.log(loops);
         }
     }
     // for JSON output
