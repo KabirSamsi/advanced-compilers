@@ -4,7 +4,7 @@ import {Graph} from "../common/graph.ts";
 import {prettyPrint, readStdin} from "../common/commandLine.ts";
 import {bigIntersection, mapInv, setEquals} from "../common/dataStructureUtils.ts";
 
-const computeDominators = (cfg : Graph) => {
+export const computeDominators = (cfg : Graph) => {
   const vertices = cfg.getVertices()
 
   // dom = {each vertex -> all vertices}

@@ -4,7 +4,7 @@ import {
   brilInstruction,
   brilProgram,
 } from "../common/looseTypes.ts";
-import { dominanceFrontier, dominanceTree } from "../dominance/main.ts";
+import { computeDominators, dominanceFrontier, dominanceTree } from "../dominance/main.ts";
 import { Graph } from "../common/graph.ts";
 import {
   prettyPrint,
@@ -12,6 +12,66 @@ import {
   runBril2Json,
   runBril2Txt,
 } from "../common/commandLine.ts";
+
+/*
+* Compute the back-edges in a CFG via a breadth-first search traversal
+* @param CFG – the control-flow graph
+* @param entry – The entry to the CFG
+* @return – A map mapping all vertices to the nodes to which they have backedges
+*/
+const backEdges = ((cfg: Graph) : Map<string, Set<string>> => {
+    const dominators : Map<string, Set<string>> = computeDominators(cfg);
+    const backEdges : Map<string, Set<string>> = new Map<string, Set<string>>();
+
+    for (let vertex of cfg.getVertices()) {
+        let edges : Set<string> = new Set<string>();
+        for (let dominator of dominators.get(vertex)?? new Set()) {
+            if (cfg.successors(vertex).includes(dominator)) {
+                edges.add(dominator);
+            }
+        }
+        backEdges.set(vertex, edges);
+    }
+    return backEdges;
+})
+
+/* Compute the loop around a back edge
+* @param cfg – The Control-flow graph
+* @param v – The dominated vertex from which the backedge starts
+* @param u – The dominator vertex to whic hteh backedge goes
+* @return – A set of all elements in in the contained loop
+*/
+const loopAroundBackEdge = ((cfg : Graph, v : string, u : string) : Set<string> => {
+    let queue : string[] = [v]
+    const visited : Set<string> = new Set([v]);
+    let result : Set<string> = new Set([u]);
+    while (queue.length > 0) {
+        let front : string = queue.shift()!;
+        result.add(front);
+        for (const pred of cfg.predecessors(front)) {
+            if (!visited.has(pred) && pred != u) {
+                visited.add(pred);
+                queue.push(pred);
+            }
+        }
+    }
+    return result;
+})
+
+/* Compute all natural loops in a CFG
+* @param cfg – the Control-Flow Graph
+* @param backEdges – The (previously computed) backedges in the graph
+* @return – An array of each loop, represented by the set of block labels it encompasses
+*/
+const naturalLoops = ((cfg : Graph, backEdges : Map<string, Set<string>>) : Set<string>[] => {
+    const loops : Set<string>[] = [];
+    for (const [v, us] of backEdges) {
+        for (let u of us) {
+            loops.push(loopAroundBackEdge(cfg, v, u));
+        }
+    }
+    return loops;
+})
 
 /*
     Auxiliary function for Tarjan's Strongly Connected Components Algorithm.
@@ -90,12 +150,14 @@ const main = async (stdin) => {
     }
     const program = JSON.parse(stdin);
     for (const fn of program.functions || []) {
+        console.log(fn.name?? "");
         if (fn.instrs) {
             const blocks = basicBlocks(fn.instrs);
             const cfg = generateCFG(blocks);
             Array.from(blocks.values()).flat();
-            const result = findLoops(cfg);
-            console.log(result);
+            const back : Map<string, Set<string>> = backEdges(cfg);
+            const loops : Set<string>[] = naturalLoops(cfg, back);
+            console.log(loops);
         }
     }
     // for JSON output
