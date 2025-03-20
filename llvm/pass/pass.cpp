@@ -34,21 +34,82 @@ namespace {
                                             srval += 1;
                                         }
 
-                                        errs() << "Transforming division by " << oldDivisor << " into right-shifting by " << srval << " and subsequent division by " << divisor << "\n";
-
-                                        // Add in both for proper division
                                         Value* shift_right = builder.CreateLShr(left, builder.getInt32(srval));
-                                        Value* residual_division = builder.CreateSDiv(shift_right, builder.getInt32(divisor));
+                                        if (divisor == 1) {
+                                            errs() << "Transforming division by " << oldDivisor << " into right-shifting by " << srval << "\n";
+                                            for (auto& U : op->uses()) {
+                                                User* user = U.getUser();
+                                                user->setOperand(U.getOperandNo(), shift_right);
+                                            }
 
-                                        for (auto& U : op->uses()) {
-                                            User* user = U.getUser();
-                                            user->setOperand(U.getOperandNo(), residual_division);
+                                        } else {
+                                            errs() << "Transforming division by " << oldDivisor << " into right-shifting by " << srval << " and subsequent division by " << divisor << "\n";
+                                            Value* residual_division = builder.CreateSDiv(shift_right, builder.getInt32(divisor));
+                                            for (auto& U : op->uses()) {
+                                                User* user = U.getUser();
+                                                user->setOperand(U.getOperandNo(), residual_division);
+                                            }
                                         }
                                     }
                                 }
 
                             } else if ((I.getOpcode() == Instruction::Mul)) {
-                                errs() << "found a multiplication operation " <<"!\n";
+                                if (auto *lconst = llvm::dyn_cast<llvm::ConstantInt>(left)) {
+                                    int lhs = lconst->getValue().getSExtValue();
+                                    if (auto *rconst = llvm::dyn_cast<llvm::ConstantInt>(right)) {
+                                        int rhs = rconst->getValue().getSExtValue();
+                                        errs() << "Multiplication of constants can be propagated!\n";
+                                        op->replaceAllUsesWith(builder.getInt32(rhs*lhs));
+
+                                    } else {
+                                        int oldMultiplier = lhs;
+                                        int slval = 0;
+                                        while (lhs%2 == 0) {
+                                            lhs /= 2;
+                                            slval += 1;
+                                        }
+
+                                        Value* shift_left = builder.CreateShl(left, builder.getInt32(slval));
+                                        if (lhs == 1) {
+                                            errs() << "Transforming multiplication by " << oldMultiplier << " into left-shifting by " << slval << "\n";
+                                            for (auto& U : op->uses()) {
+                                                User* user = U.getUser();
+                                                user->setOperand(U.getOperandNo(), shift_left);
+                                            }
+                                        } else {
+                                            errs() << "Transforming multiplication by " << oldMultiplier << " into left-shifting by " << slval << " and subsequent multiplication by " << lhs << "\n";
+                                            Value* residual_mult = builder.CreateMul(shift_left, builder.getInt32(lhs));
+                                            for (auto& U : op->uses()) {
+                                                User* user = U.getUser();
+                                                user->setOperand(U.getOperandNo(), residual_mult);
+                                            }
+                                        }
+                                    }
+                                } else if (auto *rconst = llvm::dyn_cast<llvm::ConstantInt>(right)) {
+                                    int rhs = rconst->getValue().getSExtValue();
+                                    int oldMultiplier = rhs;
+                                    int slval = 0;
+                                    while (rhs%2 == 0) {
+                                        rhs /= 2;
+                                        slval += 1;
+                                    }
+
+                                    Value* shift_left = builder.CreateShl(left, builder.getInt32(slval));
+                                    if (rhs == 1) {
+                                        errs() << "Transforming multiplication by " << oldMultiplier << " into left-shifting by " << slval << "\n";
+                                        for (auto& U : op->uses()) {
+                                            User* user = U.getUser();
+                                            user->setOperand(U.getOperandNo(), shift_left);
+                                        }
+                                    } else {
+                                        errs() << "Transforming multiplication by " << oldMultiplier << " into left-shifting by " << slval << " and subsequent multiplication by " << rhs << "\n";
+                                        Value* residual_mult = builder.CreateMul(shift_left, builder.getInt32(rhs));
+                                        for (auto& U : op->uses()) {
+                                            User* user = U.getUser();
+                                            user->setOperand(U.getOperandNo(), residual_mult);
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
