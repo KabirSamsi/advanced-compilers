@@ -1,9 +1,6 @@
 import { basicBlocks, CFGs, generateCFG } from "../common/basicBlockCFG.ts";
-import {
-  BlockMap,
-  brilInstruction,
-  brilProgram,
-} from "../common/looseTypes.ts";
+import { BlockMap,brilInstruction, brilProgram } from "../common/looseTypes.ts";
+import { reaching } from "../dataflow/main.ts";
 import { computeDominators, dominanceFrontier, dominanceTree } from "../dominance/main.ts";
 import { Graph } from "../common/graph.ts";
 import {
@@ -58,86 +55,75 @@ const loopAroundBackEdge = ((cfg : Graph, v : string, u : string) : Set<string> 
     return result;
 })
 
-/* Compute all natural loops in a CFG
+/* Compute all natural loops in a CFG, with their headers
 * @param cfg – the Control-Flow Graph
 * @param backEdges – The (previously computed) backedges in the graph
 * @return – An array of each loop, represented by the set of block labels it encompasses
 */
-const naturalLoops = ((cfg : Graph, backEdges : Map<string, Set<string>>) : Set<string>[] => {
-    const loops : Set<string>[] = [];
+const naturalLoops = ((cfg : Graph, backEdges : Map<string, Set<string>>) : [string, Set<string>][] => {
+    const loops : [string, Set<string>][] = [];
     for (const [v, us] of backEdges) {
         for (let u of us) {
-            loops.push(loopAroundBackEdge(cfg, v, u));
+            loops.push([u, loopAroundBackEdge(cfg, v, u)]);
         }
     }
     return loops;
 })
 
-/*
-    Auxiliary function for Tarjan's Strongly Connected Components Algorithm.
-    @param cfg – the Control-Flow Graph
-    @param vertex – The relevant node of the CFG
-    @param time – State reference to the current time
-    @param disc – Mapping vertices to their discovery time
-    @param earliest – Mapping vertices to the earliest discovery time in their given SCC
-    @param stackMember – Checks stack membership for each vertex
-    @param stack - Tracks elements in DFS traversal
-    @param loops – Series of components, each one containing the relevant blocks per loop
-
-    @return – Nothing.
-*/
-const aux = ((cfg : Graph, vertex : string, time : { value: number}, disc: Map<string, number>, earliest : Map<string, number>, stackMember : Map<string, boolean>, st : string[], loops : string[][]) => {
-    disc.set(vertex, time.value);
-    earliest.set(vertex, time.value);
-    stackMember.set(vertex, true);
-    st.push(vertex);
-    time.value += 1;
-
-    // Recurse through neighbors
-    for (let neighbor of cfg.successors(vertex)) {
-        if (disc.get(neighbor)! == -1) {
-            aux(cfg, neighbor, time, disc, earliest, stackMember, st, loops);
-            earliest.set(vertex, Math.min(earliest.get(vertex)!, earliest.get(neighbor)!));
-        } else if (stackMember.get(neighbor)!) {
-            earliest.set(vertex, Math.min(earliest.get(vertex)!, earliest.get(neighbor)!));
-        }
+/* Generate fresh basic block into which we can move LICM code. */
+const freshBlock = ((vertices : string[]) : string => {
+    let i : number = 0;
+    while (vertices.includes("block_" + i)) {
+        i += 1;
     }
-
-    // Propagate and return if head of component is found.
-    const result : string[] = [];
-    if (earliest.get(vertex) == disc.get(vertex)) {
-        let w : string;
-        do {
-            w = st.pop()!;
-            result.push(w);
-            stackMember.set(w, false);
-        } while (w !== vertex);
-        if (result.length > 0) {
-            loops.push(result);
-        }
-    }
+    return "block_" + i;
 })
 
+/* Perform a Loop-Invariant Code Motion Analysis */
+const licm = ((cfg : Graph, blocks : BlockMap, loops : [string, Set<string>][]) => {
+    // Create new block into which we can add LICM code
+    const reachingDefinitions = reaching(cfg, blocks);
 
-/*
-    Compute all loops as strongly connected components of the CFG, using Tarjan's Algorithm for SCCs.
-    @param cfg – the Control-Flow Graph
-    @return – Set of computed loops.
-*/
-const findLoops = ((cfg : Graph) : string[][] => {
-    const time = { value: 0 };
-    const disc : Map<string, number> = new Map(cfg.getVertices().map(v => [v, -1]));
-    const earliest : Map<string, number> = new Map(cfg.getVertices().map(v => [v, -1]));
-    const stackMember : Map<string, boolean> = new Map(cfg.getVertices().map(v => [v, false]));
-    const st : string[] = [];
-    const loops : string[][] = [];
+    for (let [header, loop] of loops) {
+        let preds : string[] = cfg.predecessors(header);
+        let prehead : string = freshBlock(cfg.getVertices());
+        
+        // Set new block which just jumps to new header element
+        blocks.set(prehead, [{op : "jmp", labels: [header]}]);
+        cfg.addEdge(prehead, header);
+        for (let pred of preds) {
+            // Update blocks to reflect this change
+            cfg.removeEdge(pred, header);
+            let block : brilInstruction[] = blocks.get(pred)!;
+            if (block.length > 0 && block[block.length-1].labels) {
+                block[block.length-1].labels = block[block.length-1].labels!.map(
+                    nm => (nm == header) ? prehead : nm
+                );
+            }
+            // After the block maintenance is done, add in new edge
+            cfg.addEdge(pred, prehead);
+        }
 
-    for (const vertex of cfg.getVertices()) {
-        if (disc.get(vertex)! == -1) {
-            aux(cfg, vertex, time, disc, earliest, stackMember, st, loops);
+        // Mark all arguments which are loop-invariant
+        let loopInvariant : Set<brilInstruction> = new Set<brilInstruction>();
+        for (let blockname of loop) {
+            for (let insn of blocks.get(blockname)?? []) {
+                for (let arg of insn.args?? []) {
+                    let definitions = reachingDefinitions[arg];
+                    if (definitions.length == 1) {
+                        if (loopInvariant.has(definitions[0])) {
+                            loopInvariant.add(insn);
+                            break;
+                        }
+                    } else {
+                        for (const definition of reachingDefinitions[arg]) {
+                            // WIP
+                        }
+                    }
+                }
+            }
         }
     }
-    return loops;
 })
 
 /* Main functionality */
@@ -156,8 +142,9 @@ const main = async (stdin) => {
             const cfg = generateCFG(blocks);
             Array.from(blocks.values()).flat();
             const back : Map<string, Set<string>> = backEdges(cfg);
-            const loops : Set<string>[] = naturalLoops(cfg, back);
+            const loops : [string, Set<string>][] = naturalLoops(cfg, back);
             console.log(loops);
+            // console.log(loops);
         }
     }
     // for JSON output

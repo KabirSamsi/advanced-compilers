@@ -19,6 +19,12 @@ export class Graph {
     this.edges.get(from)!.push(to);
   }
 
+  removeEdge(from: string, to: string) {
+    if (this.vertices.has(from) && this.vertices.has(to)) {
+      this.edges.set(from, this.edges.get(from)!.filter((lbl) => lbl == to));
+    }
+  }
+
   getVertices() {
     return [...this.vertices];
   }

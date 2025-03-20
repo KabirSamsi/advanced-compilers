@@ -134,7 +134,7 @@ const lva = (graph: Graph, blocks: BlockMap) => {
 }
 
 /* Dataflow – Reaching Definitions Analysis */
-const reaching = (graph: Graph, blocks: BlockMap) => {
+export const reaching = (graph: Graph, blocks: BlockMap) => {
     type data = Set<brilInstruction>;
 
     /* Merge function */
