@@ -35,7 +35,7 @@ const backEdges = ((cfg: Graph) : Map<string, Set<string>> => {
 /* Compute the loop around a back edge
 * @param cfg – The Control-flow graph
 * @param v – The dominated vertex from which the backedge starts
-* @param u – The dominator vertex to whic hteh backedge goes
+* @param u – The dominator vertex to which teh backedge goes
 * @return – A set of all elements in in the contained loop
 */
 const loopAroundBackEdge = ((cfg : Graph, v : string, u : string) : Set<string> => {
@@ -105,8 +105,7 @@ const licm = ((cfg : Graph, blocks : BlockMap, loops : [string, Set<string>][]) 
         }
 
         // Mark all arguments which are loop-invariant
-        let loopInvariant : Set<brilInstruction> = new Set<brilInstruction>();
-        for (let blockname of loop) {
+2        for (let blockname of loop) {
             for (let insn of blocks.get(blockname)?? []) {
                 for (let arg of insn.args?? []) {
                     let definitions = reachingDefinitions[arg];
