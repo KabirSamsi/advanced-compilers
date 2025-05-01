@@ -1,0 +1,1 @@
+We adapt the [brili reference interpreter](https://github.com/sampsyo/bril/blob/175580e85cb6e4f78e82cdc8c26bfacfb0ef6c22/brili.ts) to produce traces. You can run it with `deno run brili.ts`.
