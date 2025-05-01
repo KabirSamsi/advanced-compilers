@@ -1,5 +1,9 @@
 import * as bril from './bril-ts/bril.ts';
 import {readStdin, unreachable} from './bril-ts/util.ts';
+import {brilInstruction} from "../common/looseTypes.ts";
+
+let enableTracing = false;
+const trace : brilInstruction[] = []
 
 /**
  * An interpreter error to print to the console.
@@ -413,6 +417,13 @@ function evalCall(instr: bril.Operation, state: State): Action {
 function evalInstr(instr: bril.Instruction, state: State): Action {
   state.icount += BigInt(1);
 
+  if (enableTracing) {
+    if (instr.op == "call") {
+      enableTracing = false;
+    }
+    trace.push(instr);
+  }
+
   // Check that we have the right number of arguments.
   if (instr.op !== "const") {
     let count = argCounts[instr.op];
@@ -776,6 +787,9 @@ function evalInstr(instr: bril.Instruction, state: State): Action {
 }
 
 function evalFunc(func: bril.Function, state: State): Value | null {
+  if (func.name === "main") {
+    enableTracing = true;
+  }
   for (let i = 0; i < func.instrs.length; ++i) {
     let line = func.instrs[i];
     if ('op' in line) {
@@ -917,7 +931,7 @@ function parseMainArguments(expected: bril.Argument[], args: string[]) : Env {
   return newEnv;
 }
 
-function evalProg(prog: bril.Program) {
+export function evalProg(prog: bril.Program) {
   let heap = new Heap<Value>()
   let main = findFunc("main", prog.functions);
   if (main === null) {
@@ -957,6 +971,7 @@ function evalProg(prog: bril.Program) {
     console.error(`total_dyn_inst: ${state.icount}`);
   }
 
+  return trace;
 }
 
 async function main() {
@@ -974,4 +989,7 @@ async function main() {
   }
 }
 
-main();
+// only run if this is being run as the main file (not imported)
+if (import.meta.main) {
+  main();
+}
