@@ -3,7 +3,12 @@ import {readStdin, unreachable} from './bril-ts/util.ts';
 import {brilInstruction} from "../common/looseTypes.ts";
 
 let enableTracing = false;
-const trace : brilInstruction[] = []
+const trace : TraceItem[] = []
+
+export type TraceItem = {
+  instr: brilInstruction;
+  takenLabel?: string;
+}
 
 /**
  * An interpreter error to print to the console.
@@ -421,7 +426,7 @@ function evalInstr(instr: bril.Instruction, state: State): Action {
     if (instr.op == "call") {
       enableTracing = false;
     }
-    trace.push(instr);
+    trace.push({instr});
   }
 
   // Check that we have the right number of arguments.
@@ -619,8 +624,10 @@ function evalInstr(instr: bril.Instruction, state: State): Action {
   case "br": {
     let cond = getBool(instr, state.env, 0);
     if (cond) {
+      trace[trace.length-1].takenLabel= getLabel(instr, 0)
       return {"action": "jump", "label": getLabel(instr, 0)};
     } else {
+      trace[trace.length-1].takenLabel= getLabel(instr, 1)
       return {"action": "jump", "label": getLabel(instr, 1)};
     }
   }
