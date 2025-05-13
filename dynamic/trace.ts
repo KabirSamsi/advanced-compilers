@@ -5,8 +5,6 @@ import * as bril from "./bril-ts/bril.ts";
 
 /* Main function */
 const main = async () => {
-    const args = Deno.args; // Get command-line arguments
-
     let datastring = await readStdin();
     // Try to parse as JSON first
     try {
@@ -26,7 +24,6 @@ const main = async () => {
     } finally {
         console.log = realLog;
     }
-
     const p = optimize(data,trace!)
     console.log(JSON.stringify(p,null, 2));
 };
